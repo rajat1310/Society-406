@@ -1,0 +1,2055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Society 406 — Maintenance Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // ── FIREBASE CONFIG ── Replace with YOUR project values ──
+  const firebaseConfig = {
+    apiKey: "AIzaSyDDoZiFcrBOAHrShhKzGiKyEKAXtGPCk5M",
+    authDomain: "society-406.firebaseapp.com",
+    databaseURL: "https://society-406-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "society-406",
+    storageBucket: "society-406.firebasestorage.app",
+    messagingSenderId: "679666442244",
+    appId: "1:679666442244:web:39cd2bef3e31273baf9551",
+    measurementId: "G-6KM3CDJ1HX"
+  };
+
+  const fireApp = initializeApp(firebaseConfig);
+  const fireDB  = getDatabase(fireApp);
+
+  // Expose helpers to global scope so the rest of the app can call them
+  window._fbSet = function(path, data){ return set(ref(fireDB, path), data); };
+  window._fbGet = function(path){ return get(ref(fireDB, path)).then(s=>s.exists()?s.val():null); };
+  window._fbListen = function(path, cb){ onValue(ref(fireDB, path), snap=>cb(snap.exists()?snap.val():null)); };
+
+  // Signal that Firebase is ready
+  window._fbReady = true;
+  document.dispatchEvent(new Event('firebase-ready'));
+</script>
+<style>
+:root{
+  --ink:#1a1a2e;--ink-lt:#4a4a6a;--ink-mu:#8888aa;
+  --cream:#faf9f6;--cream-dk:#f0ede6;
+  --gold:#c9a84c;
+  --teal:#0d7377;--teal-lt:#e0f4f4;
+  --green:#2d7a4f;--green-lt:#e0f5ea;
+  --amber:#b06000;--amber-lt:#fff3dc;
+  --danger:#b02020;--danger-lt:#fde8e8;
+  --border:rgba(26,26,46,.10);
+  --sh-sm:0 2px 8px rgba(26,26,46,.08);
+  --sh-md:0 6px 24px rgba(26,26,46,.12);
+  --r:16px;--rsm:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;overflow-x:hidden}
+
+/* LOGIN */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);padding:20px;position:relative;overflow:hidden}
+#login-screen::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 30% 20%,rgba(201,168,76,.15) 0%,transparent 60%),
+             radial-gradient(ellipse at 70% 80%,rgba(13,115,119,.15) 0%,transparent 60%)}
+.login-card{background:rgba(250,249,246,.97);border-radius:24px;padding:44px 40px;width:100%;
+  max-width:460px;position:relative;box-shadow:0 40px 80px rgba(0,0,0,.4);animation:slideUp .5s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+.login-logo{width:64px;height:64px;background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:18px;
+  display:flex;align-items:center;justify-content:center;margin-bottom:18px;font-size:28px}
+.login-title{font-family:'DM Serif Display',serif;font-size:28px;color:var(--ink);margin-bottom:3px}
+.login-sub{font-size:14px;color:var(--ink-mu);margin-bottom:26px}
+.adm-panel{display:none}.adm-panel.show{display:block;animation:fadeIn .2s}
+.rst-panel{display:none}.rst-panel.show{display:block;animation:fadeIn .2s}
+.link-btn{background:none;border:none;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--teal);
+  cursor:pointer;text-decoration:underline;padding:0;display:inline-block;margin-top:8px}
+.sec-q{background:var(--amber-lt);border:1px solid rgba(176,96,0,.2);border-radius:var(--rsm);
+  padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--amber)}
+.sec-q strong{display:block;margin-bottom:3px;font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+
+/* FORMS */
+.fg{margin-bottom:15px}
+.fl{font-size:11px;font-weight:600;color:var(--ink-mu);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;display:block}
+.fi,.fs{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--rsm);
+  font-family:'DM Sans',sans-serif;font-size:14px;color:var(--ink);background:#fff;
+  transition:border-color .2s,box-shadow .2s;appearance:none}
+.fi:focus,.fs:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px rgba(13,115,119,.12)}
+.sw{position:relative}.sw::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  color:var(--ink-mu);pointer-events:none;font-size:13px}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px}
+.fr4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:11px}
+.iu{position:relative}.iu .fi{padding-right:38px}
+.iu span{position:absolute;right:11px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:600;color:var(--ink-mu);pointer-events:none}
+
+/* BUTTONS */
+.btn{padding:10px 20px;border-radius:var(--rsm);border:none;font-family:'DM Sans',sans-serif;
+  font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:all .2s}
+.btn-p{background:linear-gradient(135deg,#1a1a2e,#0f3460);color:#fff;width:100%;justify-content:center}
+.btn-p:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(15,52,96,.35)}
+.btn-s{background:var(--cream-dk);color:var(--ink);border:1px solid var(--border)}
+.btn-s:hover{background:#e8e4db}
+.btn-t{background:var(--teal);color:#fff}
+.btn-t:hover{background:#0a5e62;transform:translateY(-1px)}
+.btn-g{background:var(--gold);color:#fff}
+.btn-g:hover{background:#b8923e}
+.btn-d{background:var(--danger);color:#fff}
+.btn-d:hover{background:#8b1a1a}
+.btn-ol{background:transparent;border:1.5px solid var(--teal);color:var(--teal)}
+.btn-ol:hover{background:var(--teal-lt)}
+.btn-sm{padding:7px 14px;font-size:13px}
+.btn-xs{padding:4px 10px;font-size:12px;border-radius:7px}
+.btn-amber{background:var(--amber-lt);color:var(--amber);border:1px solid rgba(176,96,0,.25)}
+.btn-amber:hover{background:#ffe8b8}
+
+/* TOPBAR */
+#app{display:none}
+.topbar{background:linear-gradient(135deg,#1a1a2e,#16213e 60%,#0f3460);padding:0 24px;
+  display:flex;align-items:center;justify-content:space-between;height:64px;
+  position:sticky;top:0;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.28)}
+.tb-brand{display:flex;align-items:center;gap:12px}
+.tb-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--gold),#e8b84b);border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(201,168,76,.4)}
+.tb-title{font-family:'DM Serif Display',serif;font-size:18px;color:#fff}
+.tb-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px}
+.tb-right{display:flex;align-items:center;gap:10px}
+.u-chip{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:30px;
+  padding:5px 12px 5px 8px;display:flex;align-items:center;gap:7px}
+.u-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.u-nm{font-size:13px;color:#fff;font-weight:500}
+.r-pill{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700;letter-spacing:.04em}
+.r-adm{background:var(--gold);color:#1a1a2e}.r-mem{background:rgba(255,255,255,.18);color:#fff}
+.btn-lo{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.8);
+  padding:6px 12px;border-radius:8px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .2s}
+.btn-lo:hover{background:rgba(255,255,255,.18);color:#fff}
+
+/* TABS */
+.tabs-bar{background:#fff;border-bottom:1px solid var(--border);display:flex;padding:0 24px;
+  position:sticky;top:64px;z-index:150;box-shadow:0 2px 8px rgba(0,0,0,.04);overflow-x:auto;gap:2px}
+.tab{padding:14px 16px;font-size:13px;font-weight:500;color:var(--ink-mu);border-bottom:3px solid transparent;
+  cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.tab:hover{color:var(--ink)}.tab.active{color:var(--teal);border-bottom-color:var(--teal);font-weight:600}
+
+/* PAGES */
+.page{padding:24px;max-width:1280px;margin:0 auto;display:none;animation:fadeIn .25s ease}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* MONTH PICKER */
+.mpk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#fff;
+  border:1px solid var(--border);border-radius:var(--rsm);padding:9px 14px;
+  margin-bottom:18px;box-shadow:var(--sh-sm)}
+.mpk-label{font-size:11px;font-weight:600;color:var(--ink-mu);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.mpk-nav{background:none;border:1.5px solid var(--border);border-radius:7px;
+  padding:4px 11px;font-size:14px;cursor:pointer;color:var(--ink-lt);transition:all .15s;font-family:'DM Sans',sans-serif}
+.mpk-nav:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-lt)}
+.mpk-cur{font-size:15px;font-weight:600;color:var(--ink);min-width:150px;text-align:center}
+.mpk-today{font-size:12px;font-weight:600;padding:4px 11px;border-radius:7px;
+  background:var(--teal-lt);color:var(--teal);border:1.5px solid rgba(13,115,119,.25);
+  cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s}
+.mpk-today:hover{background:var(--teal);color:#fff}
+.mpk-badge{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600;
+  background:var(--amber-lt);color:var(--amber);border:1px solid rgba(176,96,0,.2)}
+.mpk-badge.is-live{background:var(--green-lt);color:var(--green);border-color:rgba(45,122,79,.2)}
+.mpk-badge-future{background:var(--teal-lt)!important;color:var(--teal)!important;border-color:rgba(13,115,119,.2)!important}
+
+/* ALERTS */
+.ab{border-radius:var(--rsm);padding:13px 16px;margin-bottom:20px;
+  display:flex;align-items:flex-start;gap:12px;border:1px solid;animation:slideD .3s ease}
+@keyframes slideD{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.ab-ico{font-size:20px;flex-shrink:0;margin-top:1px}
+.ab-body strong{display:block;font-weight:600;margin-bottom:2px;font-size:14px}
+.ab-body span{font-size:13px;opacity:.85}
+.ab-ok{background:var(--teal-lt);border-color:rgba(13,115,119,.25);color:var(--teal)}
+.ab-warn{background:var(--amber-lt);border-color:rgba(176,96,0,.25);color:var(--amber)}
+.ab-danger{background:var(--danger-lt);border-color:rgba(176,32,32,.25);color:var(--danger)}
+.ab-info{background:#f0f4ff;border-color:#c7d4ff;color:#3456c4}
+
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:13px;margin-bottom:22px}
+.sc{background:#fff;border-radius:var(--r);padding:18px;border:1px solid var(--border);box-shadow:var(--sh-sm);position:relative;overflow:hidden}
+.sc::before{content:'';position:absolute;top:-16px;right:-16px;width:64px;height:64px;border-radius:50%;opacity:.09}
+.sc.g::before{background:var(--green)}.sc.r::before{background:var(--danger)}
+.sc.t::before{background:var(--teal)}.sc.a::before{background:var(--amber)}.sc.gd::before{background:var(--gold)}
+.sc-em{font-size:24px;margin-bottom:9px;display:block}
+.sc-lb{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-mu);margin-bottom:5px}
+.sc-vl{font-family:'DM Serif Display',serif;font-size:24px;line-height:1}
+.sc-vl.g{color:var(--green)}.sc-vl.r{color:var(--danger)}.sc-vl.t{color:var(--teal)}.sc-vl.a{color:var(--amber)}.sc-vl.gd{color:var(--gold)}
+.sc-sb{font-size:12px;color:var(--ink-mu);margin-top:4px}
+
+/* CYCLE BAR */
+.cyc-bar{background:#fff;border:1px solid var(--border);border-radius:var(--r);padding:18px 22px;margin-bottom:20px;box-shadow:var(--sh-sm)}
+.cyc-title{font-size:12px;font-weight:600;color:var(--ink-mu);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.cyc-track{display:flex;align-items:flex-start;overflow-x:auto;padding-bottom:4px;gap:0}
+.cyc-step{flex:1;min-width:76px;text-align:center;position:relative;z-index:1}
+.cyc-step::after{content:'';position:absolute;top:16px;left:calc(50% + 19px);right:calc(-50% + 19px);height:2px;background:var(--cream-dk);z-index:-1}
+.cyc-step:last-child::after{display:none}
+.cyc-dot{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;margin:0 auto 5px;border:2px solid}
+.cyc-day{font-size:13px;font-weight:700;color:var(--ink)}
+.cyc-lbl{font-size:10px;color:var(--ink-mu);margin-top:2px;line-height:1.3}
+.cs-start .cyc-dot{background:var(--teal-lt);border-color:var(--teal);color:var(--teal)}
+.cs-warn .cyc-dot{background:var(--amber-lt);border-color:var(--amber);color:var(--amber)}
+.cs-pen .cyc-dot{background:var(--danger-lt);border-color:var(--danger);color:var(--danger)}
+.cs-today .cyc-dot{background:var(--ink);border-color:var(--ink);color:#fff}
+
+/* FLAT CARDS */
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
+.st{font-family:'DM Serif Display',serif;font-size:19px;color:var(--ink);display:flex;align-items:center;gap:9px}
+.fg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:15px;margin-bottom:26px}
+.fc{background:#fff;border-radius:var(--r);padding:19px;border:1px solid var(--border);
+  box-shadow:var(--sh-sm);position:relative;overflow:hidden;transition:box-shadow .25s,transform .2s}
+.fc:hover{box-shadow:var(--sh-md);transform:translateY(-2px)}
+.fc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:16px 0 0 16px}
+.fc-paid::before{background:var(--green)}.fc-warn::before{background:var(--amber)}
+.fc-danger::before{background:var(--danger)}.fc-ok::before{background:var(--teal)}
+.fc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:13px}
+.fc-info{display:flex;align-items:center;gap:10px}
+.fc-av{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.fc-nm{font-weight:600;font-size:14px;color:var(--ink);margin-bottom:1px}
+.fc-fl{font-size:12px;color:var(--ink-mu)}
+.sb{font-size:11px;font-weight:700;padding:3px 11px;border-radius:20px;letter-spacing:.04em;white-space:nowrap;flex-shrink:0}
+.sb-paid{background:var(--green-lt);color:var(--green)}.sb-warn{background:var(--amber-lt);color:var(--amber)}
+.sb-danger{background:var(--danger-lt);color:var(--danger)}.sb-ok{background:var(--teal-lt);color:var(--teal)}
+.pen-tag{display:inline-flex;align-items:center;gap:4px;background:var(--danger-lt);color:var(--danger);
+  font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;margin-bottom:8px}
+.pw{margin:11px 0 8px}
+.pl{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-mu);margin-bottom:5px}
+.pb{background:var(--cream-dk);border-radius:6px;height:7px;overflow:hidden}
+.pf{height:100%;border-radius:6px;transition:width .6s ease}
+.pf-paid{background:linear-gradient(90deg,#2d7a4f,#4aad75)}.pf-warn{background:linear-gradient(90deg,#b06000,#e8a020)}
+.pf-danger{background:linear-gradient(90deg,#b02020,#e84040)}.pf-ok{background:linear-gradient(90deg,#0d7377,#1da0a5)}
+.fa{display:flex;justify-content:space-between;font-size:12px}
+.fai{text-align:center}
+.fai-l{color:var(--ink-mu);font-size:11px;margin-bottom:2px}
+.fai-v{font-weight:600;color:var(--ink)}
+
+/* CHART */
+.chart-card{background:#fff;border-radius:var(--r);padding:20px;border:1px solid var(--border);box-shadow:var(--sh-sm);margin-bottom:20px}
+
+/* TABLE */
+.tbl-card{background:#fff;border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh-sm);overflow:hidden;margin-bottom:20px}
+.ctbl{width:100%;border-collapse:collapse;font-size:13px}
+.ctbl thead tr{background:linear-gradient(135deg,#1a1a2e,#16213e)}
+.ctbl th{padding:12px 14px;text-align:left;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.7);white-space:nowrap}
+.ctbl td{padding:11px 14px;border-bottom:1px solid var(--cream-dk);vertical-align:middle}
+.ctbl tbody tr:last-child td{border-bottom:none}
+.ctbl tbody tr:hover td{background:var(--cream)}
+.ctbl .rw-warn{background:rgba(176,96,0,.04)}.ctbl .rw-danger{background:rgba(176,32,32,.04)}
+.inline-inp{width:72px;padding:3px 6px;border:1.5px solid var(--teal);border-radius:6px;
+  font-family:'DM Sans',sans-serif;font-size:12px;color:var(--ink);background:#fff}
+.inline-inp:focus{outline:none;box-shadow:0 0 0 2px rgba(13,115,119,.15)}
+.ca{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+
+/* EXPENSE */
+.ei{background:#fff;border-radius:var(--rsm);padding:14px 17px;border:1px solid var(--border);
+  box-shadow:var(--sh-sm);display:flex;align-items:center;gap:13px;margin-bottom:10px;transition:box-shadow .2s}
+.ei:hover{box-shadow:var(--sh-md)}
+.ei-ico{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.ei-body{flex:1}
+.ei-title{font-weight:600;font-size:14px;color:var(--ink);margin-bottom:2px}
+.ei-meta{font-size:12px;color:var(--ink-mu);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ei-amt{font-family:'DM Serif Display',serif;font-size:19px;color:var(--danger);flex-shrink:0}
+.cchip{font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500}
+
+/* ADMIN */
+.ag{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px}
+.ac{background:#fff;border-radius:var(--r);padding:24px;border:1px solid var(--border);box-shadow:var(--sh-sm)}
+.ac-title{font-family:'DM Serif Display',serif;font-size:17px;margin-bottom:5px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.ac-desc{font-size:13px;color:var(--ink-mu);margin-bottom:16px;line-height:1.6}
+.divider{height:1px;background:var(--cream-dk);margin:16px 0}
+
+/* SETTINGS */
+.scard{background:#fff;border-radius:var(--r);padding:26px;border:1px solid var(--border);box-shadow:var(--sh-sm);margin-bottom:16px}
+.ss{border-left:4px solid var(--teal);padding-left:14px;margin-bottom:22px}
+.ss-title{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:3px}
+.ss-desc{font-size:12px;color:var(--ink-mu);margin-bottom:12px;line-height:1.5}
+.cyc-prev{background:linear-gradient(135deg,var(--teal-lt),rgba(224,244,244,.4));border:1px solid rgba(13,115,119,.15);
+  border-radius:var(--rsm);padding:13px 16px;margin-top:12px;font-size:13px;color:var(--teal);line-height:1.9}
+.cyc-prev strong{color:var(--ink)}
+.rules-box{background:linear-gradient(135deg,var(--cream),var(--cream-dk));border:1px solid var(--border);
+  border-radius:var(--rsm);padding:14px 16px;font-size:13px;color:var(--ink-lt);line-height:1.8;margin-top:16px}
+.rules-box strong{color:var(--ink);display:block;margin-bottom:5px;font-size:14px}
+
+/* QR / PAY */
+.pay-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:18px;margin-bottom:22px}
+.qcard{background:#fff;border-radius:var(--r);padding:26px;border:1px solid var(--border);box-shadow:var(--sh-sm);text-align:center}
+.qbox{width:260px;height:260px;margin:0 auto 18px;border-radius:14px;overflow:hidden;
+  border:3px solid var(--border);background:var(--cream-dk);display:flex;align-items:center;justify-content:center;position:relative}
+.qph{font-size:13px;color:var(--ink-mu);text-align:center;padding:18px;line-height:1.5}
+.qimg{width:100%;height:100%;object-fit:contain;display:none}
+.upi-badge{display:inline-flex;align-items:center;gap:5px;background:var(--ink);color:var(--gold);
+  font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;letter-spacing:.04em;margin-bottom:12px}
+.pinfo{background:linear-gradient(135deg,var(--teal-lt),rgba(224,244,244,.5));border:1px solid rgba(13,115,119,.2);
+  border-radius:var(--rsm);padding:14px 16px;margin-bottom:14px;text-align:left}
+.pinfo-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(13,115,119,.1)}
+.pinfo-row:last-child{border-bottom:none}
+.pinfo-label{font-size:12px;color:var(--teal);font-weight:600}
+.pinfo-value{font-size:14px;font-weight:600;color:var(--ink)}
+.step-list{text-align:left}
+.step-item{display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-bottom:1px solid var(--cream-dk);font-size:13px;color:var(--ink-lt)}
+.step-item:last-child{border-bottom:none}
+.step-num{width:21px;height:21px;border-radius:50%;background:var(--teal);color:#fff;font-size:11px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.no-qr{font-size:13px;color:var(--ink-mu);padding:13px;text-align:center;background:var(--cream-dk);border-radius:var(--rsm)}
+.qup{border:2px dashed var(--border);border-radius:var(--rsm);padding:18px;text-align:center;
+  cursor:pointer;transition:all .2s;margin-bottom:12px;background:var(--cream)}
+.qup:hover{border-color:var(--teal);background:var(--teal-lt)}
+.qup input{display:none}
+
+/* MODAL */
+.mbd{position:fixed;inset:0;background:rgba(26,26,46,.6);backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;z-index:999;padding:20px}
+.modal{background:#fff;border-radius:18px;padding:30px;width:100%;max-width:500px;
+  box-shadow:0 30px 60px rgba(0,0,0,.25);animation:mIn .25s ease}
+@keyframes mIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal-title{font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:4px;color:var(--ink)}
+.modal-sub{font-size:13px;color:var(--ink-mu);margin-bottom:22px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;
+  padding-top:18px;border-top:1px solid var(--cream-dk)}
+
+/* UTILS */
+.hidden{display:none!important}
+.empty-st{text-align:center;padding:50px 20px;color:var(--ink-mu)}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:12px 18px;
+  border-radius:11px;font-size:14px;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,.28);
+  z-index:9999;animation:tIn .3s ease;display:flex;align-items:center;gap:8px;max-width:340px}
+@keyframes tIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.save-indicator{position:fixed;top:74px;right:16px;background:var(--green);color:#fff;
+  font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;
+  box-shadow:var(--sh-md);z-index:300;animation:tIn .3s ease;display:flex;align-items:center;gap:6px}
+.mpk-badge{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600;
+  background:var(--amber-lt);color:var(--amber);border:1px solid rgba(176,96,0,.2)}
+.mpk-badge.is-live{background:var(--green-lt);color:var(--green);border-color:rgba(45,122,79,.2)}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ LOGIN ═══════════ -->
+<div id="login-screen">
+<div class="login-card">
+  <div class="login-logo">🏢</div>
+  <div class="login-title">Society 406</div>
+  <div class="login-sub">Maintenance &amp; Expense Manager</div>
+  <div class="fg">
+    <label class="fl">Select Your Flat</label>
+    <div class="sw"><select class="fs" id="lg-flat" onchange="onFlatChange()">
+      <option value="">— Choose your flat —</option>
+      <option value="406A-GF">🏠 Flat 406A · Ground Floor</option>
+      <option value="406A-FF">🏠 Flat 406A · First Floor</option>
+      <option value="406A-SF">🏠 Flat 406A · Second Floor</option>
+      <option value="406B-GF">🏠 Flat 406B · Ground Floor</option>
+      <option value="406B-FF">🏠 Flat 406B · First Floor</option>
+      <option value="406B-SF">🏠 Flat 406B · Second Floor</option>
+      <option value="AHUJA">🏠 Ahuja Roof Flat</option>
+      <option value="admin">🔐 Admin (Society Manager)</option>
+    </select></div>
+  </div>
+  <div class="adm-panel" id="adm-panel">
+    <div class="fg"><label class="fl">Admin PIN</label>
+      <input type="password" class="fi" id="lg-pin" placeholder="Enter your PIN" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="link-btn" onclick="showRst()">🔑 Forgot PIN? Reset access</button>
+  </div>
+  <div class="rst-panel" id="rst-panel">
+    <div class="sec-q"><strong>Security Question</strong>What is the society name? (Answer: <em>Society 406</em>)</div>
+    <div class="fg"><label class="fl">Your Answer</label><input type="text" class="fi" id="sec-ans" placeholder="Type here…"></div>
+    <div class="fg"><label class="fl">Set New PIN</label><input type="password" class="fi" id="rst-pin" placeholder="Min. 4 digits"></div>
+    <button class="btn btn-ol" style="width:100%;justify-content:center;margin-bottom:10px" onclick="doRst()">Reset PIN &amp; Login →</button>
+    <button class="link-btn" onclick="hideRst()">← Back to PIN login</button>
+  </div>
+  <div style="height:14px"></div>
+  <button class="btn btn-p" onclick="doLogin()">Enter Dashboard →</button>
+</div>
+</div>
+
+<!-- ═══════════ APP ═══════════ -->
+<div id="app">
+<div class="topbar">
+  <div class="tb-brand">
+    <div class="tb-icon">🏢</div>
+    <div><div class="tb-title">Society 406 Manager</div><div class="tb-sub" id="tb-date"></div></div>
+  </div>
+  <div class="tb-right">
+    <div class="u-chip">
+      <div class="u-av" id="u-av">🏠</div>
+      <div><div class="u-nm" id="u-nm">Member</div><div class="r-pill r-mem" id="u-role">MEMBER</div></div>
+    </div>
+    <div id="fb-status" style="font-size:11px;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.15)" title="Firebase sync status">⏳ Connecting…</div>
+    <button class="btn-lo" onclick="doLogout()">← Logout</button>
+  </div>
+</div>
+<div class="tabs-bar">
+  <div class="tab hidden" id="tab-overview"  onclick="showTab('overview')">📊 Overview</div>
+  <div class="tab hidden" id="tab-contrib"   onclick="showTab('contrib')">💰 Contributions</div>
+  <div class="tab hidden" id="tab-expenses"  onclick="showTab('expenses')">🧾 Expenses</div>
+  <div class="tab hidden" id="tab-pay"       onclick="showTab('pay')">📱 Pay Now</div>
+  <div class="tab hidden" id="tab-admin"     onclick="showTab('admin')">🛡 Admin</div>
+  <div class="tab hidden" id="tab-settings"  onclick="showTab('settings')">⚙ Settings</div>
+</div>
+
+<!-- ── OVERVIEW ── -->
+<div class="page active" id="page-overview">
+  <!-- Overview: no month filter — always shows current month -->
+  <div id="ov-alert"></div>
+  <div class="sg">
+    <div class="sc g"><span class="sc-em">💵</span><div class="sc-lb">Total Collected</div><div class="sc-vl g" id="s-col">₹0</div><div class="sc-sb" id="s-col-sub">Since cycle start</div></div>
+    <div class="sc r"><span class="sc-em">🧾</span><div class="sc-lb">Total Spent</div><div class="sc-vl r" id="s-spt">₹0</div><div class="sc-sb">Till viewed month</div></div>
+    <div class="sc t"><span class="sc-em">🏦</span><div class="sc-lb">Society Balance</div><div class="sc-vl t" id="s-bal">₹0</div><div class="sc-sb" id="s-bal-sub">Available</div></div>
+    <div class="sc a"><span class="sc-em">⏳</span><div class="sc-lb">Pending Dues</div><div class="sc-vl a" id="s-pnd">₹0</div><div class="sc-sb" id="s-pnd-sub">—</div></div>
+    <div class="sc gd"><span class="sc-em">✅</span><div class="sc-lb">Flats Cleared</div><div class="sc-vl gd" id="s-clr">0/7</div><div class="sc-sb" id="s-clr-sub">Paid this month</div></div>
+  </div>
+  <div class="cyc-bar"><div class="cyc-title">📅 Contribution Cycle</div><div class="cyc-track" id="cyc-track"></div></div>
+  <div class="sh">
+    <div class="st">🏠 Flat-wise Status <span id="ov-month-lbl" style="font-family:'DM Sans';font-size:14px;font-weight:400;color:var(--teal)"></span></div>
+  </div>
+  <div class="fg-grid" id="flats-grid"></div>
+  <!-- Chart removed per user request -->
+</div>
+
+<!-- ── CONTRIBUTIONS ── -->
+<div class="page" id="page-contrib">
+  <div id="ct-mpk"></div><!-- month picker for all users -->
+  <div id="ct-alert"></div>
+  <div id="ct-my-flat-notice" class="hidden"></div><!-- member notice shown for member -->
+  <div class="sh">
+    <div class="st">💰 Contributions — <span id="ct-month-lbl" style="font-family:'DM Sans';font-size:14px;font-weight:400;color:var(--teal)"></span></div>
+  </div>
+  <div class="tbl-card">
+    <table class="ctbl">
+      <thead><tr>
+        <th>Flat</th><th>Floor</th><th>Block</th>
+        <th>Base Due</th><th>Penalty</th><th>Total Due</th>
+        <th>Paid</th><th>Balance</th><th>Status</th>
+        <th id="act-col" class="hidden">Actions</th>
+      </tr></thead>
+      <tbody id="ct-body"></tbody>
+    </table>
+  </div>
+  <div class="rules-box" id="rules-box"></div>
+</div>
+
+<!-- ── EXPENSES ── -->
+<div class="page" id="page-expenses">
+  <div id="exp-mpk"></div><!-- month picker for all users -->
+  <div class="sh">
+    <div class="st">🧾 Society Expenses <span id="exp-month-lbl" style="font-family:'DM Sans';font-size:14px;font-weight:400;color:var(--teal)"></span></div>
+    <button class="btn btn-t hidden" id="add-exp-btn" onclick="openAddExp()">+ Add Expense</button>
+  </div>
+  <div id="exp-list"></div>
+</div>
+
+<!-- ── PAY NOW ── -->
+<div class="page" id="page-pay">
+  <div class="sh"><div class="st">📱 Scan &amp; Pay</div></div>
+  <p style="font-size:13px;color:var(--ink-mu);margin-bottom:20px;line-height:1.6">
+    Scan the QR code below with any UPI app (PhonePe, GPay, Paytm, BHIM) to pay your monthly contribution. Admin can upload the QR from ⚙ Settings.
+  </p>
+  <div class="pay-grid">
+    <div class="qcard">
+      <div style="font-family:'DM Serif Display',serif;font-size:19px;margin-bottom:5px">🏦 Society Collection Account</div>
+      <div style="font-size:13px;color:var(--ink-mu);margin-bottom:14px">Scan to pay ₹<span id="qr-amt">500</span> contribution</div>
+      <div class="upi-badge">📲 UPI / QR Payment</div>
+      <div class="qbox" onclick="openQRLightbox()" style="cursor:pointer" title="Click to enlarge">
+        <div class="qph" id="qph">📵<br><br>No QR uploaded yet.<br>Admin: ⚙ Settings</div>
+        <img class="qimg" id="qimg" alt="Payment QR">
+      </div>
+      <div class="pinfo">
+        <div class="pinfo-row"><span class="pinfo-label">Society</span><span class="pinfo-value" id="pi-soc">Society 406</span></div>
+        <div class="pinfo-row"><span class="pinfo-label">Monthly Amount</span><span class="pinfo-value" id="pi-amt" style="color:var(--teal)">₹500</span></div>
+        <div class="pinfo-row"><span class="pinfo-label">UPI ID</span><span class="pinfo-value" id="pi-upi">—</span></div>
+        <div class="pinfo-row"><span class="pinfo-label">Account Name</span><span class="pinfo-value" id="pi-acn">—</span></div>
+        <div class="pinfo-row"><span class="pinfo-label">Pay Before</span><span class="pinfo-value" id="pi-due">—</span></div>
+      </div>
+      <div id="no-qr-note" class="no-qr">QR not yet set. Please contact admin or pay directly.</div>
+    </div>
+    <div class="qcard" style="text-align:left">
+      <div style="font-family:'DM Serif Display',serif;font-size:19px;margin-bottom:5px;text-align:center">📋 How to Pay</div>
+      <div class="step-list">
+        <div class="step-item"><div class="step-num">1</div><div>Open PhonePe, Google Pay, Paytm, BHIM, or your bank app.</div></div>
+        <div class="step-item"><div class="step-num">2</div><div>Tap <strong>"Scan QR"</strong> or <strong>"Pay"</strong>.</div></div>
+        <div class="step-item"><div class="step-num">3</div><div>Point camera at the QR code and scan it.</div></div>
+        <div class="step-item"><div class="step-num">4</div><div>Enter amount: <strong>₹<span id="how-amt">500</span></strong></div></div>
+        <div class="step-item"><div class="step-num">5</div><div>Add note: your flat number (e.g. <strong>406A Ground Floor</strong>).</div></div>
+        <div class="step-item"><div class="step-num">6</div><div>Confirm &amp; pay. Screenshot the confirmation.</div></div>
+        <div class="step-item"><div class="step-num">7</div><div>Inform admin so they can mark your payment.</div></div>
+      </div>
+      <div style="margin-top:16px;background:var(--amber-lt);border:1px solid rgba(176,96,0,.2);border-radius:var(--rsm);padding:12px 14px;font-size:13px;color:var(--amber)">
+        ⚠ <strong>Important:</strong> Payment is only confirmed after admin marks it in the system.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ADMIN ── -->
+<div class="page" id="page-admin">
+  <div class="sh"><div class="st">🛡 Admin Panel</div></div>
+  <div class="ag">
+
+    <div class="ac">
+      <div class="ac-title">💸 Record Payment</div>
+      <div class="ac-desc">Mark a flat's contribution as received.</div>
+      <div class="fg"><label class="fl">Select Flat</label><div class="sw"><select class="fs" id="pay-flat"></select></div></div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Amount Paid (₹)</label><input type="number" class="fi" id="pay-amt" placeholder="e.g. 600"></div>
+        <div class="fg"><label class="fl">Date</label><input type="date" class="fi" id="pay-date"></div>
+      </div>
+      <button class="btn btn-t" onclick="recPayment()">✓ Record Payment</button>
+    </div>
+
+    <div class="ac">
+      <div class="ac-title">🔄 Month Rollover</div>
+      <div class="ac-desc">Manually start a new month cycle. Unpaid balances carry as arrears.<br><br>
+        <span style="color:var(--green);font-size:12px;font-weight:600">⚡ Auto-rollover also runs on the 1st of every month when any user opens the app.</span>
+      </div>
+      <button class="btn btn-g" onclick="doRollover(true)">▶ Start New Month Cycle</button>
+      <div class="divider"></div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:5px">⚠ Manual Penalty</div>
+      <div class="ac-desc" style="margin-bottom:10px">Apply extra penalty to a flat.</div>
+      <div class="fr">
+        <div class="fg"><div class="sw"><select class="fs" id="pen-flat"></select></div></div>
+        <div class="fg"><input type="number" class="fi" id="pen-amt" placeholder="₹ Amount"></div>
+      </div>
+      <button class="btn btn-d btn-sm" onclick="applyPenalty()">Apply Penalty</button>
+    </div>
+
+    <div class="ac">
+      <div class="ac-title">🗂 Edit Individual Flat</div>
+      <div class="ac-desc">Edit any flat's paid amount, penalty, arrears or base due. Reset to zero anytime.</div>
+      <div class="fg"><label class="fl">Select Flat</label><div class="sw"><select class="fs" id="edit-flat-sel"></select></div></div>
+      <button class="btn btn-amber btn-sm" onclick="openFlatEditFromSel()">✏️ Open Edit Panel</button>
+    </div>
+
+    <div class="ac">
+      <div class="ac-title">🔑 Change Admin PIN</div>
+      <div class="ac-desc">Update your admin PIN. Never visible to members.</div>
+      <div class="fg"><label class="fl">Current PIN</label><input type="password" class="fi" id="cur-pin" placeholder="Current PIN"></div>
+      <div class="fg"><label class="fl">New PIN</label><input type="password" class="fi" id="new-pin" placeholder="Min. 4 digits"></div>
+      <div class="fg"><label class="fl">Confirm New PIN</label><input type="password" class="fi" id="conf-pin" placeholder="Repeat new PIN"></div>
+      <button class="btn btn-s btn-sm" onclick="changePin()">Update PIN →</button>
+    </div>
+
+    <div class="ac" style="border-left:4px solid var(--danger)">
+      <div class="ac-title" style="color:var(--danger)">⚠ Danger Zone</div>
+      <div class="ac-desc">Irreversible actions. Use with caution.</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Reset ALL Flats to Zero</div>
+      <div style="font-size:12px;color:var(--ink-mu);margin-bottom:8px">Clears paid, penalty &amp; arrears for every flat in the current viewed month.</div>
+      <button class="btn btn-d btn-sm" onclick="resetAllFlats()">🔄 Reset All Flats</button>
+      <div class="divider"></div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Delete ALL Expenses</div>
+      <div style="font-size:12px;color:var(--ink-mu);margin-bottom:8px">Permanently removes all expense records.</div>
+      <button class="btn btn-d btn-sm" onclick="deleteAllExpenses()">🗑 Delete All Expenses</button>
+    </div>
+
+    <div class="ac" style="border-left:4px solid var(--teal)">
+      <div class="ac-title">📥 Download Report</div>
+      <div class="ac-desc">Download a full monthly report as a CSV file — opens perfectly in Excel or Google Sheets. Includes all flat contributions, expenses, and a summary for the currently viewed month.</div>
+      <button class="btn btn-t" onclick="downloadExcel()">📊 Download Excel Report — <span id="dl-month-lbl" style="font-style:italic"></span></button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── SETTINGS ── -->
+<div class="page" id="page-settings">
+  <div class="sh"><div class="st">⚙ Settings</div></div>
+  <p style="font-size:13px;color:var(--ink-mu);margin-bottom:20px;line-height:1.6">All settings are saved to your browser's local storage so every member who opens the app sees the same configuration. For GitHub hosting, changes persist per-device until cache is cleared.</p>
+
+  <div class="scard">
+
+    <div class="ss">
+      <div class="ss-title">💰 Contribution Amounts</div>
+      <div class="ss-desc">Monthly amount every flat must pay, and starting credit balance per flat.</div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Monthly Contribution (₹)</label>
+          <div class="iu"><input type="number" class="fi" id="cfg-base" min="100" step="50"><span>₹</span></div></div>
+        <div class="fg"><label class="fl">Starting Balance per Flat (₹)</label>
+          <div class="iu"><input type="number" class="fi" id="cfg-sbal" min="0" step="50" placeholder="0"><span>₹</span></div>
+          <div style="font-size:11px;color:var(--ink-mu);margin-top:5px">Pre-credited as "Paid" for new months. E.g. ₹2500 means each flat starts with ₹2500 already paid.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ss">
+      <div class="ss-title">📅 Contribution Start Month &amp; Year</div>
+      <div class="ss-desc">From this month onwards ₹500 auto-applies. <strong>Oct 2025 → month before this = zero by default</strong> (admin enters manually). Navigation always starts Oct 2025.</div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Start Month</label>
+          <div class="sw"><select class="fs" id="cfg-start-month">
+            <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+            <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+            <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+          </select></div></div>
+        <div class="fg"><label class="fl">Start Year</label>
+          <input type="number" class="fi" id="cfg-start-year" min="2020" max="2099" placeholder="2025"></div>
+      </div>
+
+    </div>
+
+    <div class="ss">
+      <div class="ss-title">📅 Contribution Cycle Day Rules</div>
+      <div class="ss-desc">Set key day-of-month numbers that drive the contribution cycle.</div>
+      <div class="fr4">
+        <div class="fg"><label class="fl">📌 Cycle Start Day</label>
+          <div class="iu"><input type="number" class="fi" id="cfg-start" min="1" max="28"><span>th</span></div>
+          <div style="font-size:11px;color:var(--ink-mu);margin-top:4px">Due from this day</div></div>
+        <div class="fg"><label class="fl">🟡 Warning Day</label>
+          <div class="iu"><input type="number" class="fi" id="cfg-warn" min="2" max="28"><span>th</span></div>
+          <div style="font-size:11px;color:var(--ink-mu);margin-top:4px">Orange alert starts</div></div>
+        <div class="fg"><label class="fl">🔴 Penalty Day</label>
+          <div class="iu"><input type="number" class="fi" id="cfg-pday" min="3" max="28"><span>th</span></div>
+          <div style="font-size:11px;color:var(--ink-mu);margin-top:4px">Penalty charged after</div></div>
+        <div class="fg"><label class="fl">🔄 Auto-Reset Day</label>
+          <div class="iu"><input type="number" class="fi" id="cfg-uday" min="1" max="28"><span>th</span></div>
+          <div style="font-size:11px;color:var(--ink-mu);margin-top:4px">New cycle auto-starts</div></div>
+      </div>
+    </div>
+
+    <div class="ss">
+      <div class="ss-title">⚠ Penalty Configuration</div>
+      <div class="ss-desc">Penalty amount charged after penalty day and how often it compounds.</div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Penalty Amount (₹)</label>
+          <div class="iu"><input type="number" class="fi" id="cfg-pamt" min="0" step="50"><span>₹</span></div></div>
+        <div class="fg"><label class="fl">Compound Every (days)</label>
+          <div class="iu"><input type="number" class="fi" id="cfg-cdays" min="1" max="30"><span>days</span></div>
+          <div style="font-size:11px;color:var(--ink-mu);margin-top:4px">Extra ₹ added every N days</div></div>
+      </div>
+    </div>
+
+    <div class="ss">
+      <div class="ss-title">📱 Payment QR Code &amp; UPI Details</div>
+      <div class="ss-desc">Upload QR code image and fill UPI details shown on the Pay Now tab.</div>
+      <label class="qup" onclick="document.getElementById('qr-file').click()">
+        <input type="file" id="qr-file" accept="image/*" onchange="handleQR(event)">
+        <div style="font-size:28px;margin-bottom:6px" id="qup-ico">📷</div>
+        <div style="font-size:13px;color:var(--ink-mu)" id="qup-txt"><strong>Click to upload QR Code image</strong><br>JPG, PNG · Max 5MB</div>
+      </label>
+      <div id="qr-preview-wrap" style="display:none;text-align:center;margin-bottom:12px">
+        <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:6px">✅ QR uploaded</div>
+        <img id="qr-preview" style="width:110px;height:110px;object-fit:contain;border-radius:9px;border:2px solid var(--border)" alt="QR Preview">
+        <div style="margin-top:7px"><button class="btn btn-d btn-xs" onclick="removeQR()">🗑 Remove</button></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">UPI ID</label><input type="text" class="fi" id="cfg-upi" placeholder="e.g. society406@upi"></div>
+        <div class="fg"><label class="fl">Account Name</label><input type="text" class="fi" id="cfg-acn" placeholder="e.g. Society 406 Fund"></div>
+      </div>
+      <div class="fg"><label class="fl">Society Display Name</label><input type="text" class="fi" id="cfg-soc" placeholder="e.g. Society 406 Residents"></div>
+    </div>
+
+    <div class="cyc-prev" id="cfg-prev"></div>
+
+    <div style="margin-top:18px;display:flex;gap:12px;flex-wrap:wrap">
+      <button class="btn btn-t" onclick="saveSettings()">💾 Save All Settings</button>
+      <button class="btn btn-s" onclick="loadSettingsForm()">↺ Reset to Current</button>
+    </div>
+  </div>
+</div>
+</div><!-- /app -->
+
+<!-- ── FLAT EDIT MODAL ── -->
+<div class="mbd hidden" id="flat-edit-modal">
+<div class="modal" style="max-width:480px">
+  <div class="modal-title" id="fem-title">✏️ Edit Flat</div>
+  <div class="modal-sub" id="fem-sub">Adjust amounts for this flat.</div>
+  <div style="background:var(--danger-lt);border:1px solid rgba(176,32,32,.2);border-radius:var(--rsm);padding:10px 13px;margin-bottom:18px;font-size:12px;color:var(--danger);display:flex;gap:7px;align-items:center">
+    <span style="font-size:15px;flex-shrink:0">⚠</span><span>Changes are permanent. Use Reset to Zero to fully clear this flat.</span>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Base Due (₹)</label><div class="iu"><input type="number" class="fi" id="fem-base" min="0"><span>₹</span></div></div>
+    <div class="fg"><label class="fl">Amount Paid (₹)</label><div class="iu"><input type="number" class="fi" id="fem-paid" min="0"><span>₹</span></div></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Penalty (₹)</label><div class="iu"><input type="number" class="fi" id="fem-pen" min="0"><span>₹</span></div></div>
+    <div class="fg"><label class="fl">Arrears (₹)</label><div class="iu"><input type="number" class="fi" id="fem-arr" min="0"><span>₹</span></div></div>
+  </div>
+  <div class="modal-actions" style="justify-content:space-between">
+    <button class="btn btn-d btn-sm" onclick="resetFlatZero()">🔄 Reset to Zero</button>
+    <div style="display:flex;gap:9px">
+      <button class="btn btn-s btn-sm" onclick="closeFlatEdit()">Cancel</button>
+      <button class="btn btn-t btn-sm" onclick="saveFlatEdit()">💾 Save</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ── EXPENSE ADD MODAL ── -->
+<div class="mbd hidden" id="add-exp-modal">
+<div class="modal">
+  <div class="modal-title">Add New Expense</div>
+  <div class="modal-sub">Record a society expense visible to all members.</div>
+  <div class="fg"><label class="fl">Description *</label><input type="text" class="fi" id="ae-desc" placeholder="e.g. Water bill, Security salary…"></div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Amount (₹) *</label><input type="number" class="fi" id="ae-amt" placeholder="0"></div>
+    <div class="fg"><label class="fl">Category</label><div class="sw"><select class="fs" id="ae-cat">
+      <option>💡 Utilities</option><option>🔒 Security</option><option>🔧 Maintenance</option>
+      <option>🧹 Cleaning</option><option>🏗 Repairs</option><option>🌿 Gardening</option><option>📦 Other</option>
+    </select></div></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Date *</label><input type="date" class="fi" id="ae-date"></div>
+    <div class="fg"><label class="fl">Notes</label><input type="text" class="fi" id="ae-notes" placeholder="Optional…"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-s btn-sm" onclick="closeAddExp()">Cancel</button>
+    <button class="btn btn-t btn-sm" onclick="addExpense()">+ Add Expense</button>
+  </div>
+</div>
+</div>
+
+<!-- ── EXPENSE EDIT MODAL ── -->
+<div class="mbd hidden" id="edit-exp-modal">
+<div class="modal">
+  <div class="modal-title">✏️ Edit Expense</div>
+  <div class="modal-sub">Update this expense record.</div>
+  <input type="hidden" id="ee-id">
+  <div class="fg"><label class="fl">Description *</label><input type="text" class="fi" id="ee-desc" placeholder="Description…"></div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Amount (₹) *</label><input type="number" class="fi" id="ee-amt"></div>
+    <div class="fg"><label class="fl">Category</label><div class="sw"><select class="fs" id="ee-cat">
+      <option>💡 Utilities</option><option>🔒 Security</option><option>🔧 Maintenance</option>
+      <option>🧹 Cleaning</option><option>🏗 Repairs</option><option>🌿 Gardening</option><option>📦 Other</option>
+    </select></div></div>
+  </div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Date *</label><input type="date" class="fi" id="ee-date"></div>
+    <div class="fg"><label class="fl">Notes</label><input type="text" class="fi" id="ee-notes"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-s btn-sm" onclick="closeEditExp()">Cancel</button>
+    <button class="btn btn-t btn-sm" onclick="saveEditExp()">💾 Save Changes</button>
+  </div>
+</div>
+</div>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+const FLATS = [
+  {id:'406A-GF',name:'Flat 406A',floor:'Ground Floor',block:'Block A',emoji:'🏠',color:'#2d7a4f',bg:'#e0f5ea'},
+  {id:'406A-FF',name:'Flat 406A',floor:'First Floor', block:'Block A',emoji:'🏠',color:'#0d7377',bg:'#e0f4f4'},
+  {id:'406A-SF',name:'Flat 406A',floor:'Second Floor',block:'Block A',emoji:'🏠',color:'#5a2d82',bg:'#f0e8fa'},
+  {id:'406B-GF',name:'Flat 406B',floor:'Ground Floor',block:'Block B',emoji:'🏠',color:'#c9a84c',bg:'#fff8e8'},
+  {id:'406B-FF',name:'Flat 406B',floor:'First Floor', block:'Block B',emoji:'🏠',color:'#b06000',bg:'#fff3dc'},
+  {id:'406B-SF',name:'Flat 406B',floor:'Second Floor',block:'Block B',emoji:'🏠',color:'#c84b6a',bg:'#fde8ee'},
+  {id:'AHUJA',  name:'Ahuja Roof',floor:'Roof Top',   block:'Ahuja Wing',emoji:'🏠',color:'#1a1a2e',bg:'#e8e8f4'},
+];
+const CAT_ICO = {'💡 Utilities':'💡','🔒 Security':'🔒','🔧 Maintenance':'🔧','🧹 Cleaning':'🧹','🏗 Repairs':'🏗','🌿 Gardening':'🌿','📦 Other':'📦'};
+const CAT_BG  = {'💡 Utilities':'#fff3dc','🔒 Security':'#fde8ee','🔧 Maintenance':'#e0f4f4','🧹 Cleaning':'#e0f5ea','🏗 Repairs':'#fde8e8','🌿 Gardening':'#e8f8e8','📦 Other':'#f0e8fa'};
+const MONTHS  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const SMON    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Fresh storage keys — avoids stale/corrupt v2 data
+const SK = { cfg:'soc406_cfg3', data:'soc406_data3', pin:'soc406_pin3' };
+
+// ── FIXED: navigation always starts Oct 2025 (never configurable — prevents login loop) ──
+const NAV_START = '2025-10';
+
+// Default config
+const DEFAULT_CFG = {
+  baseAmount:500,
+  startDay:1, warnDay:7, penaltyDay:10, updateDay:1,
+  penaltyAmt:100, compoundDays:1,      // ₹100 per day (daily penalty)
+  upiId:'', acName:'', socName:'Society 406', qrData:null,
+  // When ₹500 auto-contribution starts (configurable, defaults June 2026):
+  cycleStartMonth:6, cycleStartYear:2026,
+  // When penalty starts (same as contribution start by default):
+  penaltyStartMonth:6, penaltyStartYear:2026,
+};
+
+// ── Runtime ──
+let cfg = {...DEFAULT_CFG};
+let adminPin = '1234';
+let currentUser = null, isAdmin = false;
+const TODAY    = new Date();
+const TODAY_YM = fmtYM(TODAY);
+
+// Shared view month for Contributions + Expenses pages
+// Overview ALWAYS uses TODAY_YM (no filter)
+let viewMonth = TODAY_YM;
+let allData   = {};   // { "YYYY-MM": { contributions:{fid:{baseDue,paid,penalty,arrears,payments:[]}}, expenses:[] } }
+
+// ═══════════════════════════════════════════════════════════════
+//  PURE HELPERS
+// ═══════════════════════════════════════════════════════════════
+function fmtYM(d)   { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function ymToDate(s){ const[y,m]=s.split('-'); return new Date(+y,+m-1,1); }
+function monthLabel(s){ const d=ymToDate(s); return MONTHS[d.getMonth()]+' '+d.getFullYear(); }
+function ord(n){ const v=n%100; return n+(['th','st','nd','rd'][(v-20)%10]||['th','st','nd','rd'][v]||'th'); }
+function dom(){ return TODAY.getDate(); }
+function addM(ym,n){ const d=ymToDate(ym); d.setMonth(d.getMonth()+n); return fmtYM(d); }
+function prevYM(ym){ return addM(ym,-1); }
+function nextYM(ym){ return addM(ym,+1); }
+
+// ── Contribution / penalty window ──
+function contribStartYM(){ return cfg.cycleStartYear+'-'+String(cfg.cycleStartMonth).padStart(2,'0'); }
+function penaltyStartYM(){ return cfg.penaltyStartYear+'-'+String(cfg.penaltyStartMonth).padStart(2,'0'); }
+function isManualMonth(ym){ return ym < contribStartYM(); }
+function autoBaseDue(ym)  { return isManualMonth(ym) ? 0 : cfg.baseAmount; }
+function penaltyActive(ym){ return ym >= penaltyStartYM(); }
+
+// Auto-penalty for CURRENT LIVE month only
+function livePenalty(ym){
+  if(!penaltyActive(ym)) return 0;
+  if(ym !== TODAY_YM) return 0;
+  const d = dom();
+  if(d <= cfg.penaltyDay) return 0;
+  return cfg.penaltyAmt * Math.ceil((d - cfg.penaltyDay) / cfg.compoundDays);
+}
+
+// If admin selects a future month, return current month's data instead.
+// Contributions/expenses for a future month don't exist until that month's 1st.
+function displayMonth(){ return viewMonth > TODAY_YM ? TODAY_YM : viewMonth; }
+
+// Correct penalty for any month:
+//  - future months  → 0 (month hasn't started)
+//  - current month  → daily penalty from today's date
+//  - past months    → stored penalty; if 0 and penalty was enabled, compute full-month max
+function getEffectivePenalty(fid, ym){
+  if(!penaltyActive(ym)) return 0;   // penalty not enabled for this period
+  if(ym > TODAY_YM) return 0;        // future month: no penalty
+  const c = allData[ym] && allData[ym].contributions[fid];
+  const stored = c ? (c.penalty || 0) : 0;
+  if(ym === TODAY_YM){
+    // Live month: use larger of stored or live auto-computed value
+    const d = dom();
+    if(d <= cfg.penaltyDay) return stored;
+    const live = cfg.penaltyAmt * Math.ceil((d - cfg.penaltyDay) / cfg.compoundDays);
+    return Math.max(stored, live);
+  }
+  // Past auto-contribution month: if admin stored a penalty use it;
+  // otherwise compute the full-month penalty (so past overdue shows correctly)
+  if(stored > 0) return stored;
+  if(isManualMonth(ym)) return 0;   // pre-contribution months: only stored values
+  // Auto month (June 2026+): compute max penalty that would have applied by month end
+  const mDate = ymToDate(ym);
+  const lastDay = new Date(mDate.getFullYear(), mDate.getMonth() + 1, 0).getDate();
+  if(lastDay <= cfg.penaltyDay) return 0;
+  return cfg.penaltyAmt * Math.ceil((lastDay - cfg.penaltyDay) / cfg.compoundDays);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DATA MANAGEMENT
+// ═══════════════════════════════════════════════════════════════
+// Balance without triggering ensureMonth (avoids infinite recursion)
+function rawBal(fid, ym){
+  if(!allData[ym]) return 0;
+  const c = allData[ym].contributions[fid];
+  if(!c) return 0;
+  return Math.max(0, c.baseDue + getEffectivePenalty(fid,ym) + c.arrears - c.paid);
+}
+
+function ensureMonth(ym){
+  if(!allData[ym]) allData[ym] = { contributions:{}, expenses:[] };
+  if(!allData[ym].expenses) allData[ym].expenses = [];
+  const prev = prevYM(ym);
+  FLATS.forEach(f=>{
+    if(!allData[ym].contributions[f.id]){
+      // Manual months (pre-contribStart): always start at zero, no carry
+      // Auto months (June 2026+): carry unpaid balance from previous month
+      const arrears = isManualMonth(ym) ? 0 : rawBal(f.id, prev);
+      allData[ym].contributions[f.id] = {
+        baseDue: autoBaseDue(ym), paid:0, penalty:0, arrears, payments:[]
+      };
+    }
+    if(!allData[ym].contributions[f.id].payments) allData[ym].contributions[f.id].payments = [];
+  });
+}
+
+function getMD(ym){ ensureMonth(ym); return allData[ym]; }
+
+// Per-month values
+function flatDue(fid,ym){ const c=getMD(ym).contributions[fid]; return c.baseDue+getEffectivePenalty(fid,ym)+c.arrears; }
+function flatBal(fid,ym){ return Math.max(0,flatDue(fid,ym)-getMD(ym).contributions[fid].paid); }
+
+// ── Cumulative values from NAV_START through toYM ──
+function cumBaseDue(fid, toYM){
+  let t=0, cur=NAV_START;
+  while(cur<=toYM){ if(allData[cur]?.contributions[fid]) t+=allData[cur].contributions[fid].baseDue||0; cur=nextYM(cur); }
+  return t;
+}
+function cumPenalty(fid, toYM){
+  let t=0, cur=NAV_START;
+  while(cur<=toYM){
+    if(allData[cur]?.contributions[fid]) t+=getEffectivePenalty(fid,cur);
+    cur=nextYM(cur);
+  }
+  return t;
+}
+function cumPaid(fid, toYM){
+  let t=0, cur=NAV_START;
+  while(cur<=toYM){ if(allData[cur]?.contributions[fid]) t+=allData[cur].contributions[fid].paid||0; cur=nextYM(cur); }
+  return t;
+}
+function cumDue(fid, toYM){ return cumBaseDue(fid,toYM)+cumPenalty(fid,toYM); }
+function cumBal(fid, toYM){ return Math.max(0, cumDue(fid,toYM)-cumPaid(fid,toYM)); }
+
+// ── Society-wide totals ──
+// Total collected: sum of all flats' cumPaid from NAV_START to toYM
+function totCollected(toYM){
+  let t=0, cur=NAV_START;
+  while(cur<=toYM){
+    if(allData[cur]) FLATS.forEach(f=>{ t+=allData[cur].contributions[f.id]?.paid||0; });
+    cur=nextYM(cur);
+  }
+  return t;
+}
+// Total spent: sum of ALL expenses with date <= toYM (scans all stored months — no cycleStart restriction!)
+function totSpent(toYM){
+  let t=0;
+  Object.values(allData).forEach(md=>{
+    (md.expenses||[]).forEach(e=>{ if(e.date && e.date.substring(0,7)<=toYM) t+=e.amount; });
+  });
+  return t;
+}
+// Expenses for exactly one month (by expense date field)
+function expsForMonth(ym){
+  const seen=new Set(), res=[];
+  Object.values(allData).forEach(md=>{
+    (md.expenses||[]).forEach(e=>{
+      if(e.date && e.date.substring(0,7)===ym && !seen.has(e.id)){ seen.add(e.id); res.push(e); }
+    });
+  });
+  return res.sort((a,b)=>new Date(b.date)-new Date(a.date));
+}
+function totPending(toYM){ return FLATS.reduce((s,f)=>s+cumBal(f.id,toYM),0); }
+function paidCnt(toYM)   { return FLATS.filter(f=>cumBal(f.id,toYM)===0).length; }
+
+function getStatus(fid, ym){
+  const c = getMD(ym).contributions[fid];
+  if(c.statusOverride) return c.statusOverride;
+  if(flatBal(fid,ym)===0) return 'paid';
+  const live=ym===TODAY_YM, d=live?dom():0;
+  if(penaltyActive(ym) && d>cfg.penaltyDay) return 'danger';
+  if(d>cfg.warnDay) return 'warn';
+  return 'ok';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PERSISTENCE — Firebase Realtime Database (shared) + localStorage (fallback)
+// ═══════════════════════════════════════════════════════════════
+const FB_PATH = 'society406/'; // root path in Firebase DB
+
+// ── SAVE: write to Firebase AND localStorage ──
+function saveSt(){
+  const payload = { cfg: JSON.parse(JSON.stringify(cfg)), data: JSON.parse(JSON.stringify(allData)) };
+  // Always save to localStorage as instant fallback
+  try{
+    localStorage.setItem(SK.cfg,  JSON.stringify(cfg));
+    localStorage.setItem(SK.data, JSON.stringify(allData));
+    localStorage.setItem(SK.pin,  adminPin);
+  }catch(e){}
+  // Save to Firebase (async — non-blocking)
+  if(window._fbReady && window._fbSet){
+    window._fbSet(FB_PATH+'cfg',  JSON.parse(JSON.stringify(cfg)))
+      .catch(e=>console.warn('Firebase cfg save failed:',e));
+    window._fbSet(FB_PATH+'data', JSON.parse(JSON.stringify(allData)))
+      .catch(e=>console.warn('Firebase data save failed:',e));
+    // Note: PIN is stored only in localStorage for security — never in Firebase
+  }
+  showSaveInd();
+}
+
+// ── LOAD: try Firebase first, fallback to localStorage ──
+function loadSt(){
+  // Load from localStorage immediately (fast start)
+  try{
+    const c=localStorage.getItem(SK.cfg);  if(c) cfg={...DEFAULT_CFG,...JSON.parse(c)};
+    const d=localStorage.getItem(SK.data); if(d) allData=JSON.parse(d);
+    const p=localStorage.getItem(SK.pin);  if(p) adminPin=p;
+  }catch(e){ console.warn('localStorage load failed',e); }
+
+  // Then load from Firebase (authoritative) — if available
+  if(window._fbReady && window._fbGet){
+    _loadFromFirebase();
+  } else {
+    // Firebase not ready yet — wait for it
+    document.addEventListener('firebase-ready', _loadFromFirebase, {once:true});
+  }
+}
+
+function _loadFromFirebase(){
+  if(!window._fbGet) return;
+  window._fbGet(FB_PATH+'cfg').then(fbCfg=>{
+    if(fbCfg){
+      cfg = {...DEFAULT_CFG, ...fbCfg};
+      localStorage.setItem(SK.cfg, JSON.stringify(cfg));
+    }
+    return window._fbGet(FB_PATH+'data');
+  }).then(fbData=>{
+    if(fbData){
+      allData = fbData;
+      localStorage.setItem(SK.data, JSON.stringify(allData));
+    }
+    // Data loaded from Firebase — re-run init steps
+    cfg = {...DEFAULT_CFG, ...cfg};
+    fixOldData();
+    ensureMonth(TODAY_YM);
+    // If app is already open (user is logged in), re-render with fresh data
+    if(currentUser) { renderAll(); showSaveInd(); }
+    // Start live listener for real-time updates
+    _startFirebaseListener();
+  }).catch(e=>console.warn('Firebase load failed, using localStorage:',e));
+}
+
+// ── LIVE LISTENER: auto-refresh for all members when admin saves ──
+let _listenersStarted=false;
+function _startFirebaseListener(){
+  if(_listenersStarted||!window._fbListen) return;
+  _listenersStarted=true;
+
+  // Listen for cfg changes
+  window._fbListen(FB_PATH+'cfg', fbCfg=>{
+    if(!fbCfg) return;
+    const newCfgStr=JSON.stringify(fbCfg);
+    if(newCfgStr===JSON.stringify(cfg)) return; // no change
+    cfg = {...DEFAULT_CFG,...fbCfg};
+    localStorage.setItem(SK.cfg, JSON.stringify(cfg));
+    if(currentUser) renderAll();
+  });
+
+  // Listen for data changes
+  window._fbListen(FB_PATH+'data', fbData=>{
+    if(!fbData) return;
+    const newDataStr=JSON.stringify(fbData);
+    if(newDataStr===JSON.stringify(allData)) return; // no change
+    allData = fbData;
+    localStorage.setItem(SK.data, JSON.stringify(allData));
+    fixOldData();
+    ensureMonth(TODAY_YM);
+    if(currentUser) renderAll();
+  });
+}
+function showSaveInd(){
+  const old=document.getElementById('save-ind'); if(old) old.remove();
+  const el=document.createElement('div'); el.id='save-ind'; el.className='save-indicator';
+  el.innerHTML='✅ Changes saved'; document.body.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .4s'; setTimeout(()=>el.remove(),450); },1800);
+  // Update Firebase status badge
+  const fb=document.getElementById('fb-status');
+  if(fb){
+    if(window._fbReady){ fb.textContent='🔥 Live'; fb.style.color='rgba(74,221,128,.9)'; fb.style.background='rgba(45,122,79,.25)'; }
+    else { fb.textContent='💾 Local'; fb.style.color='rgba(255,193,70,.9)'; fb.style.background='rgba(176,96,0,.2)'; }
+  }
+}
+
+// Fix stale data: ensure pre-contribStart months have baseDue=0, penalty=0
+// (protects against importing old v2 data that had baseDue=500 for all months)
+function fixOldData(){
+  const cs = contribStartYM();
+  Object.keys(allData).forEach(ym=>{
+    if(ym < cs){
+      FLATS.forEach(f=>{
+        const c = allData[ym].contributions?.[f.id];
+        if(c){
+          if((c.baseDue||0) === cfg.baseAmount) c.baseDue = 0;
+          c.penalty = 0; c.arrears  = 0;
+        }
+      });
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MONTH PICKER — Year (2025-2070) + Month (Jan-Dec) dropdowns
+//  Both ct-mpk and exp-mpk share the same viewMonth (globally synced)
+// ═══════════════════════════════════════════════════════════════
+function buildPicker(cid){
+  const el = document.getElementById(cid); if(!el) return;
+  const selY = +viewMonth.split('-')[0];
+  const selM = +viewMonth.split('-')[1];
+  const live  = viewMonth===TODAY_YM;
+  const fut   = viewMonth>TODAY_YM;
+
+  // Year: 2025 to 2070 (admin can go 1 year ahead)
+  let yOpts='';
+  for(let y=2025;y<=2070;y++) yOpts+=`<option value="${y}" ${y===selY?'selected':''}>${y}</option>`;
+
+  // Month: Jan to Dec
+  let mOpts='';
+  SMON.forEach((m,i)=>{ mOpts+=`<option value="${i+1}" ${i+1===selM?'selected':''}>${m}</option>`; });
+
+  const badge = isAdmin ? (fut?'🔮 Future':live?'🟢 Live':'📂 Historic') : (live?'📅 Current':'📂 Historic');
+  const bCls  = fut ? 'mpk-badge' : live ? 'mpk-badge is-live' : 'mpk-badge';
+
+  el.innerHTML=`
+    <span class="mpk-label">📅 Period:</span>
+    <div class="sw" style="min-width:68px">
+      <select class="fi" id="${cid}-m" style="height:34px;padding:5px 24px 5px 8px;font-size:14px;font-weight:600;color:var(--ink)"
+        onchange="onPick('${cid}')">${mOpts}</select>
+    </div>
+    <div class="sw" style="min-width:68px">
+      <select class="fi" id="${cid}-y" style="height:34px;padding:5px 24px 5px 8px;font-size:14px;font-weight:600;color:var(--ink)"
+        onchange="onPick('${cid}')">${yOpts}</select>
+    </div>
+    ${!live?`<button class="mpk-today" onclick="goToday()">↩ Today</button>`:''}
+    <span class="${bCls}">${badge}</span>`;
+  el.classList.remove('hidden');
+}
+
+function onPick(cid){
+  const m = +document.getElementById(cid+'-m').value;
+  const y = +document.getElementById(cid+'-y').value;
+  const ym = y+'-'+String(m).padStart(2,'0');
+  if(ym < NAV_START){ toast('⚠ Cannot go before October 2025'); return; }
+  if(!isAdmin && ym > TODAY_YM){ toast('⚠ Future months are admin-only'); return; }
+  setView(ym);
+}
+function goToday(){ setView(TODAY_YM); }
+function setView(ym){ viewMonth=ym; ensureMonth(ym); renderAll(); }
+
+function renderPickers(){
+  // Overview: NO picker (always current month, no filter)
+  const ovMpk=document.getElementById('ov-mpk'); if(ovMpk) ovMpk.innerHTML='';
+
+  // Contributions + Expenses share the same picker & viewMonth
+  buildPicker('ct-mpk');
+  buildPicker('exp-mpk');
+
+  // Labels
+  document.getElementById('ov-month-lbl').textContent = monthLabel(TODAY_YM)+'  (Current Month)';
+  const isFut=viewMonth>TODAY_YM;
+  const vmLbl=isFut?monthLabel(viewMonth)+' → data from '+monthLabel(TODAY_YM):monthLabel(viewMonth);
+  document.getElementById('ct-month-lbl').textContent = vmLbl;
+  const eml=document.getElementById('exp-month-lbl'); if(eml) eml.textContent='— '+vmLbl;
+  const dlb=document.getElementById('dl-month-lbl');  if(dlb) dlb.textContent='Full Report (Oct 2025 – '+monthLabel(TODAY_YM)+')';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  LOGIN / LOGOUT
+// ═══════════════════════════════════════════════════════════════
+function onFlatChange(){
+  const v=document.getElementById('lg-flat').value;
+  const ap=document.getElementById('adm-panel');
+  const rp=document.getElementById('rst-panel');
+  // Always clear inline style first so CSS class rules can take effect
+  ap.style.display='';
+  if(v==='admin'){
+    ap.classList.add('show');
+  } else {
+    ap.classList.remove('show');
+    rp.classList.remove('show');
+  }
+}
+function showRst(){
+  document.getElementById('adm-panel').style.display='none';
+  document.getElementById('rst-panel').classList.add('show');
+}
+function hideRst(){
+  document.getElementById('adm-panel').style.display='';
+  document.getElementById('rst-panel').classList.remove('show');
+}
+function doRst(){
+  const ans=document.getElementById('sec-ans').value.trim().toLowerCase().replace(/\s+/g,'');
+  const np =document.getElementById('rst-pin').value;
+  if(!['society406','406'].includes(ans)){ toast('❌ Wrong answer — hint: "Society 406"'); return; }
+  if(!np||np.length<4){ toast('⚠ PIN must be ≥ 4 digits'); return; }
+  adminPin=np; saveSt();
+  toast('✅ PIN reset! Logging you in…');
+  setTimeout(()=>{ isAdmin=true; currentUser='admin'; launch(); },700);
+}
+function doLogin(){
+  const flat=document.getElementById('lg-flat').value;
+  if(!flat){ toast('⚠ Please select your flat'); return; }
+  if(flat==='admin'){
+    if(document.getElementById('rst-panel').classList.contains('show')){ doRst(); return; }
+    if(document.getElementById('lg-pin').value!==adminPin){ toast('❌ Incorrect PIN'); return; }
+    isAdmin=true; currentUser='admin';
+  } else { isAdmin=false; currentUser=flat; }
+  launch();
+}
+function launch(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  setupApp();
+}
+function doLogout(){
+  currentUser=null; isAdmin=false;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app').style.display='none';
+  ['lg-pin','sec-ans','rst-pin'].forEach(i=>{ const e=document.getElementById(i); if(e) e.value=''; });
+  document.getElementById('lg-flat').value='';
+  const ap=document.getElementById('adm-panel');
+  const rp=document.getElementById('rst-panel');
+  ap.classList.remove('show');
+  rp.classList.remove('show');
+  ap.style.display='';  // always clear inline style so next login works
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  APP SETUP
+// ═══════════════════════════════════════════════════════════════
+function setupApp(){
+  viewMonth = TODAY_YM;   // always default to current month on every login
+  ensureMonth(viewMonth);
+
+  const fObj=FLATS.find(f=>f.id===currentUser);
+  const name=isAdmin?'Admin':(fObj?fObj.name+' · '+fObj.floor:currentUser);
+  document.getElementById('u-nm').textContent=name;
+  document.getElementById('u-av').textContent=isAdmin?'🛡':'🏠';
+  document.getElementById('u-av').style.background=isAdmin?'rgba(201,168,76,.2)':(fObj?fObj.bg:'#eee');
+  document.getElementById('u-role').textContent=isAdmin?'ADMIN':'MEMBER';
+  document.getElementById('u-role').className='r-pill '+(isAdmin?'r-adm':'r-mem');
+  document.getElementById('tb-date').textContent=TODAY.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  ['overview','contrib','expenses','pay','admin','settings'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.add('hidden');
+  });
+  ['overview','contrib','expenses','pay'].forEach(t=>document.getElementById('tab-'+t).classList.remove('hidden'));
+
+  if(isAdmin){
+    ['tab-admin','tab-settings'].forEach(t=>document.getElementById(t).classList.remove('hidden'));
+    document.getElementById('add-exp-btn').classList.remove('hidden');
+    document.getElementById('act-col').classList.remove('hidden');
+    populateAdmSelects();
+    loadCfgForm();
+  } else {
+    document.getElementById('act-col').classList.add('hidden');
+    document.getElementById('add-exp-btn').classList.add('hidden');
+  }
+  renderAll();
+  showTab('overview');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDER ALL
+// ═══════════════════════════════════════════════════════════════
+function renderAll(){
+  try{
+    const mh=document.getElementById('member-history-section'); if(mh) mh.remove();
+    renderPickers();
+    renderAlert();
+    renderStats();        // Overview — always TODAY_YM, cumulative
+    renderCycleBar();
+    renderFlatCards();    // Overview — always TODAY_YM, cumulative per flat
+    renderContribTable(); // Contributions — uses viewMonth, cumulative up to viewMonth
+    renderExpenses();     // Expenses — uses viewMonth, that month only
+    renderRulesBox();
+    renderPayPage();
+  }catch(err){ console.error('renderAll error:',err); }
+}
+
+// ── ALERT (always reflects current month) ──
+function renderAlert(){
+  const d=dom(), ym=TODAY_YM;
+  const fill=(aid,forMember)=>{
+    let cls,ico,title,body;
+    if(penaltyActive(ym)&&d>cfg.penaltyDay){
+      cls='ab-danger'; ico='🚨'; title='Penalty Active!';
+      if(forMember&&currentUser&&currentUser!=='admin'){
+        const cb=cumBal(currentUser,ym);
+        body=cb>0?`Your flat owes ₹${cb} including penalty. Pay immediately!`:'Your flat is fully paid ✅';
+      } else {
+        body=`Deadline passed (${ord(cfg.penaltyDay)}). ₹${cfg.penaltyAmt}/day penalty on unpaid flats.`;
+      }
+    } else if(d>cfg.warnDay){
+      cls='ab-warn'; ico='⏰'; title='Deadline Approaching!';
+      if(forMember&&currentUser&&currentUser!=='admin'){
+        const cb=cumBal(currentUser,ym);
+        body=cb>0?`₹${cb} due. ${cfg.penaltyDay-d} day(s) left!`:'Your flat is fully paid ✅';
+      } else {
+        body=`${cfg.penaltyDay-d} day(s) before ₹${cfg.penaltyAmt}/day penalty starts.`;
+      }
+    } else {
+      cls='ab-ok'; ico='📅'; title='Monthly Contribution Due';
+      if(forMember&&currentUser&&currentUser!=='admin'){
+        const cb=cumBal(currentUser,ym);
+        body=cb>0?`₹${cb} due for ${monthLabel(ym)}. Pay before ${ord(cfg.penaltyDay)}.`:`Your flat is paid for ${monthLabel(ym)} ✅`;
+      } else {
+        body=`₹${cfg.baseAmount} due for ${monthLabel(ym)}. Pay before ${ord(cfg.penaltyDay)}.`;
+      }
+    }
+    const el=document.getElementById(aid);
+    if(el) el.innerHTML=`<div class="ab ${cls}"><div class="ab-ico">${ico}</div><div class="ab-body"><strong>${title}</strong><span>${body}</span></div></div>`;
+  };
+  fill('ov-alert',!isAdmin);
+  fill('ct-alert',!isAdmin);
+}
+
+// ── STATS: Overview always shows TODAY_YM cumulative ──
+function renderStats(){
+  const ym = TODAY_YM;   // ← FIXED: Overview never changes; always current month
+  const col = totCollected(ym);
+  const spt = totSpent(ym);     // ← FIXED: scans ALL stored data, not filtered by cycleStart
+  const bal = col - spt;        // ← FIXED: society balance correctly deducts expenses
+  const pnd = totPending(ym);
+  const clr = paidCnt(ym);
+
+  document.getElementById('s-col').textContent = '₹'+col.toLocaleString('en-IN');
+  document.getElementById('s-spt').textContent = '₹'+spt.toLocaleString('en-IN');
+  document.getElementById('s-bal').textContent = (bal<0?'-':'')+'₹'+Math.abs(bal).toLocaleString('en-IN');
+  document.getElementById('s-bal').className   = 'sc-vl '+(bal>=0?'t':'r');
+  document.getElementById('s-bal-sub').textContent = bal<0?'⚠ Deficit!':'Available funds';
+  document.getElementById('s-pnd').textContent = '₹'+pnd.toLocaleString('en-IN');
+  document.getElementById('s-pnd-sub').textContent = FLATS.filter(f=>cumBal(f.id,ym)>0).length+' flat(s) pending';
+  document.getElementById('s-clr').textContent = clr+'/7';
+  const cs=document.getElementById('s-col-sub'); if(cs) cs.textContent='Oct 2025 – '+monthLabel(ym);
+  const cl=document.getElementById('s-clr-sub'); if(cl) cl.textContent='Paid as of '+monthLabel(ym);
+}
+
+// ── CYCLE BAR ──
+function renderCycleBar(){
+  const steps=[
+    {day:cfg.startDay,  label:'Cycle Start',    icon:'📌',cls:'cs-start'},
+    {day:cfg.warnDay,   label:'Warning Alert',  icon:'⚠', cls:'cs-warn'},
+    {day:cfg.penaltyDay,label:'Penalty Active', icon:'🔴',cls:'cs-pen'},
+    {day:cfg.updateDay, label:'Month Reset',    icon:'🔄',cls:'cs-start'},
+  ];
+  const d=dom();
+  if(!steps.find(s=>s.day===d)) steps.push({day:d,label:'Today',icon:'📍',cls:'cs-today'});
+  steps.sort((a,b)=>a.day-b.day);
+  document.getElementById('cyc-track').innerHTML=steps.map(s=>`
+    <div class="cyc-step ${s.cls}${s.day===d?' cs-today':''}">
+      <div class="cyc-dot">${s.icon}</div>
+      <div class="cyc-day">${ord(s.day)}</div>
+      <div class="cyc-lbl">${s.label}${s.day===d?' (Today)':''}</div>
+    </div>`).join('');
+}
+
+// ── FLAT CARDS: Overview, always TODAY_YM, CUMULATIVE values ──
+function renderFlatCards(){
+  const ym=TODAY_YM;  // ← Overview always current month
+  const g=document.getElementById('flats-grid');
+  g.innerHTML='';
+  FLATS.forEach(f=>{
+    const bd   = cumBaseDue(f.id,ym);
+    const pen  = cumPenalty(f.id,ym);
+    const paid = cumPaid(f.id,ym);
+    const due  = bd+pen;
+    const bal  = Math.max(0,due-paid);
+    const pct  = due>0?Math.min(100,Math.round(paid/due*100)):100;
+    // Status based on current month's per-month data
+    const s=getStatus(f.id,ym);
+    const sM={paid:['sb-paid','✅ Paid','pf-paid','fc-paid'],warn:['sb-warn','⚠ Due Soon','pf-warn','fc-warn'],
+              danger:['sb-danger','🔴 Overdue','pf-danger','fc-danger'],ok:['sb-ok','🔵 Pending','pf-ok','fc-ok']};
+    const [sbC,sbT,pfC,fcC]=sM[s]||sM.ok;
+    const isMe=!isAdmin&&f.id===currentUser;
+    g.innerHTML+=`<div class="fc ${fcC}" style="${isMe?'box-shadow:0 0 0 3px '+f.color+';':''}">
+      <div class="fc-top">
+        <div class="fc-info">
+          <div class="fc-av" style="background:${f.bg};color:${f.color}">${f.emoji}</div>
+          <div>
+            <div class="fc-nm">${f.name}${isMe?' <span style="font-size:10px;background:'+f.color+';color:#fff;padding:1px 6px;border-radius:10px;vertical-align:middle">You</span>':''}</div>
+            <div class="fc-fl">${f.floor} · ${f.block}</div>
+          </div>
+        </div>
+        <div class="sb ${sbC}">${sbT}</div>
+      </div>
+      ${pen>0?`<div class="pen-tag">⚠ Penalty: ₹${pen}</div>`:''}
+      <div class="pw">
+        <div class="pl"><span>${pct}% paid</span><span>₹${paid} / ₹${due}</span></div>
+        <div class="pb"><div class="pf ${pfC}" style="width:${pct}%"></div></div>
+      </div>
+      <div class="fa">
+        <div class="fai"><div class="fai-l">Base Due</div><div class="fai-v">₹${bd}</div></div>
+        <div class="fai"><div class="fai-l">Penalty</div><div class="fai-v" style="color:${pen>0?'#b02020':'#aaa'}">${pen>0?'₹'+pen:'—'}</div></div>
+        <div class="fai"><div class="fai-l">Paid</div><div class="fai-v" style="color:#2d7a4f">₹${paid}</div></div>
+        <div class="fai"><div class="fai-l">Balance</div><div class="fai-v" style="color:${bal>0?'#b02020':'#2d7a4f'}">${bal>0?'₹'+bal:'Clear ✓'}</div></div>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:var(--ink-mu);text-align:center;padding:4px 8px;background:var(--cream-dk);border-radius:6px">
+        📊 Cumulative: Oct 2025 – ${monthLabel(ym)}
+      </div>
+    </div>`;
+  });
+}
+
+// ── CONTRIBUTIONS TABLE: uses displayMonth() — future months show current data ──
+function renderContribTable(){
+  const ym=displayMonth();  // future months redirect to current month
+  const tb=document.getElementById('ct-body');
+  tb.innerHTML='';
+
+  // Future month selected: show a notice, then continue to render current data
+  if(viewMonth > TODAY_YM){
+    tb.innerHTML='<tr><td colspan="10" style="padding:14px 18px;background:var(--amber-lt);color:var(--amber);font-size:13px;border-radius:8px">'+
+      '📅 Viewing '+monthLabel(viewMonth)+' — showing '+monthLabel(TODAY_YM)+' data until 1st '+monthLabel(viewMonth)+' arrives.</td></tr>';
+  }
+
+
+  // Member notice
+  const notice=document.getElementById('ct-my-flat-notice');
+  if(!isAdmin&&notice){
+    const fObj=FLATS.find(f=>f.id===currentUser);
+    notice.classList.remove('hidden');
+    notice.innerHTML=`<div style="background:linear-gradient(135deg,${fObj?fObj.bg:'#e0f4f4'},rgba(255,255,255,.5));border:1px solid ${fObj?fObj.color+'33':'rgba(13,115,119,.2)'};border-radius:var(--rsm);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px">${fObj?fObj.emoji:'🏠'}</span>
+      <div><div style="font-size:14px;font-weight:600;color:var(--ink)">${fObj?fObj.name+' · '+fObj.floor:'Your Flat'}</div>
+      <div style="font-size:12px;color:var(--ink-mu)">Cumulative contributions up to ${monthLabel(ym)}</div></div></div>`;
+  } else if(notice){ notice.classList.add('hidden'); }
+
+  const flats=isAdmin?FLATS:FLATS.filter(f=>f.id===currentUser);
+
+  flats.forEach(f=>{
+    // CUMULATIVE values for display
+    const bd   = cumBaseDue(f.id,ym);
+    const pen  = cumPenalty(f.id,ym);
+    const paid = cumPaid(f.id,ym);
+    const due  = bd+pen;
+    const bal  = Math.max(0,due-paid);
+    // Per-month data for inline editing (admin edits the selected month)
+    const c=getMD(ym).contributions[f.id];
+    const s=getStatus(f.id,ym);
+    const rCls=s==='danger'?'rw-danger':s==='warn'?'rw-warn':'';
+
+    const baseCell=isAdmin
+      ?`<input class="inline-inp" type="number" value="${c.baseDue}" onchange="inlineEdit('${f.id}','baseDue',this.value)" title="Edit ${monthLabel(ym)} base due">`
+      :`₹${bd}`;
+    const effPen=getEffectivePenalty(f.id,ym);
+    const penCell=isAdmin
+      ?`<input class="inline-inp" type="number" value="${effPen}" onchange="inlineEdit('${f.id}','penalty',this.value)" title="Edit ${monthLabel(ym)} penalty">`
+      :(pen>0?`<span style="color:#b02020;font-weight:600">₹${pen}</span>`:'—');
+    const paidCell=isAdmin
+      ?`<input class="inline-inp" type="number" value="${c.paid}" onchange="inlineEdit('${f.id}','paid',this.value)" title="Edit ${monthLabel(ym)} paid amount">`
+      :`<span style="color:#2d7a4f;font-weight:600">₹${paid}</span>`;
+
+    const hasOvr=!!c.statusOverride;
+    const statusCell=isAdmin
+      ?`<select class="inline-inp" style="width:118px;padding:3px 4px" onchange="inlineSt('${f.id}',this.value)">
+          <option value="auto" ${!hasOvr?'selected':''}>🔧 Auto</option>
+          <option value="ok"     ${s==='ok'&&hasOvr?'selected':''}>🔵 Pending</option>
+          <option value="warn"   ${s==='warn'&&hasOvr?'selected':''}>⚠ Due Soon</option>
+          <option value="danger" ${s==='danger'&&hasOvr?'selected':''}>🔴 Overdue</option>
+          <option value="paid"   ${s==='paid'?'selected':''}>✅ Paid</option>
+        </select>`
+      :`<span class="sb sb-${s}">${{ok:'🔵 Pending',warn:'⚠ Due Soon',danger:'🔴 Overdue',paid:'✅ Paid'}[s]||s}</span>`;
+
+    const act=isAdmin?`<td><div class="ca">
+      <button class="btn btn-t btn-xs" onclick="quickPay('${f.id}')">✓ Pay</button>
+      <button class="btn btn-amber btn-xs" onclick="openFlatEdit('${f.id}')">✏️</button>
+      <button class="btn btn-d btn-xs" onclick="resetOneFlat('${f.id}')" title="Reset to zero">🔄</button>
+    </div></td>`:'';
+
+    tb.innerHTML+=`<tr class="${rCls}">
+      <td><strong>${f.name}</strong></td><td>${f.floor}</td>
+      <td><span style="background:${f.bg};color:${f.color};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">${f.block}</span></td>
+      <td>${baseCell}</td><td>${penCell}</td>
+      <td><strong>₹${due}</strong></td>
+      <td>${paidCell}</td>
+      <td style="color:${bal>0?'#b02020':'#2d7a4f'};font-weight:600">${bal>0?'₹'+bal:'✓ Clear'}</td>
+      <td>${statusCell}</td>${act}
+    </tr>`;
+  });
+  if(!isAdmin&&currentUser) renderMemberHistory(ym);
+}
+
+function inlineEdit(fid,field,val){
+  const v=parseFloat(val)||0;
+  if(v<0){ toast('⚠ Cannot be negative'); return; }
+  getMD(viewMonth).contributions[fid][field]=v;
+  saveSt(); renderContribTable(); renderStats(); renderFlatCards();
+}
+function inlineSt(fid,ns){
+  const c=getMD(viewMonth).contributions[fid];
+  if(ns==='auto') delete c.statusOverride;
+  else if(ns==='paid'){ c.paid=flatDue(fid,viewMonth); delete c.statusOverride; }
+  else c.statusOverride=ns;
+  saveSt(); renderContribTable(); renderStats(); renderFlatCards();
+  toast('✅ Status updated');
+}
+
+// ── MEMBER HISTORY (transaction log below contributions table) ──
+function renderMemberHistory(ym){
+  const fid=currentUser; if(!fid||fid==='admin') return;
+  const f=FLATS.find(x=>x.id===fid);
+  const existing=document.getElementById('member-history-section'); if(existing) existing.remove();
+  const sec=document.createElement('div'); sec.id='member-history-section'; sec.style.marginTop='22px';
+
+  // Build cumulative transaction list across all months up to ym
+  const txns=[];
+  let cur=NAV_START;
+  while(cur<=ym){
+    const mc=allData[cur]?.contributions[fid];
+    if(mc){
+      if(mc.baseDue>0) txns.push({date:ord(cfg.startDay)+' '+monthLabel(cur),type:'debit',label:'Contribution Due — '+monthLabel(cur),amount:mc.baseDue,icon:'📋'});
+      if(mc.penalty>0) txns.push({date:'After '+ord(cfg.penaltyDay)+' '+monthLabel(cur),type:'debit',label:'Penalty — '+monthLabel(cur),amount:mc.penalty,icon:'⚠️'});
+      if(mc.payments?.length){
+        mc.payments.forEach(p=>{
+          const pd=p.date?new Date(p.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):monthLabel(cur);
+          txns.push({date:pd,type:'credit',label:'Payment — '+monthLabel(cur),amount:p.amt,icon:'✅'});
+        });
+      } else if(mc.paid>0 && (!mc.payments||!mc.payments.length)){
+        txns.push({date:monthLabel(cur),type:'credit',label:'Payment — '+monthLabel(cur),amount:mc.paid,icon:'✅'});
+      }
+    }
+    cur=nextYM(cur);
+  }
+
+  const bd=cumBaseDue(fid,ym), pen=cumPenalty(fid,ym), paid=cumPaid(fid,ym);
+  const due=bd+pen, bal=Math.max(0,due-paid);
+  const mLbl=monthLabel(ym);
+
+  sec.innerHTML=`
+    <div style="font-family:'DM Serif Display',serif;font-size:18px;color:var(--ink);margin-bottom:14px">📋 Your Statement — Up to ${mLbl}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:11px;margin-bottom:18px">
+      <div style="background:#fff;border-radius:var(--rsm);padding:14px;border:1px solid var(--border);text-align:center;box-shadow:var(--sh-sm)">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mu);margin-bottom:4px">Total Due</div>
+        <div style="font-size:22px;font-family:'DM Serif Display',serif;color:var(--danger)">₹${due}</div></div>
+      <div style="background:#fff;border-radius:var(--rsm);padding:14px;border:1px solid var(--border);text-align:center;box-shadow:var(--sh-sm)">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mu);margin-bottom:4px">Paid</div>
+        <div style="font-size:22px;font-family:'DM Serif Display',serif;color:var(--green)">₹${paid}</div></div>
+      <div style="background:#fff;border-radius:var(--rsm);padding:14px;border:1px solid var(--border);text-align:center;box-shadow:var(--sh-sm)">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mu);margin-bottom:4px">Balance</div>
+        <div style="font-size:22px;font-family:'DM Serif Display',serif;color:${bal>0?'var(--danger)':'var(--green)'}">${bal>0?'₹'+bal:'Clear ✓'}</div></div>
+      ${pen>0?`<div style="background:var(--danger-lt);border-radius:var(--rsm);padding:14px;border:1px solid rgba(176,32,32,.15);text-align:center">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--danger);margin-bottom:4px">Penalty</div>
+        <div style="font-size:22px;font-family:'DM Serif Display',serif;color:var(--danger)">₹${pen}</div></div>`:''}
+    </div>
+    <div style="background:#fff;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;box-shadow:var(--sh-sm)">
+      <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:12px 16px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.7)">
+        📊 Transaction Details — Up to ${mLbl}
+      </div>
+      ${txns.length?txns.map((t,i)=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--cream-dk)${i===txns.length-1?';border-bottom:none':''}">
+          <div style="display:flex;align-items:center;gap:11px">
+            <div style="width:36px;height:36px;border-radius:10px;background:${t.type==='credit'?'var(--green-lt)':'var(--danger-lt)'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${t.icon}</div>
+            <div><div style="font-size:14px;font-weight:500;color:var(--ink)">${t.label}</div>
+            <div style="font-size:12px;color:var(--ink-mu)">📅 ${t.date}</div></div>
+          </div>
+          <div style="font-family:'DM Serif Display',serif;font-size:18px;font-weight:700;color:${t.type==='credit'?'var(--green)':'var(--danger)'};white-space:nowrap;margin-left:12px">
+            ${t.type==='credit'?'+':'-'}₹${t.amount.toLocaleString('en-IN')}
+          </div>
+        </div>`).join('')
+      :'<div style="padding:22px;text-align:center;color:var(--ink-mu);font-size:13px">No transactions recorded yet.</div>'}
+      <div style="background:var(--cream-dk);padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;font-weight:600;color:var(--ink)">Running Balance</span>
+        <span style="font-family:'DM Serif Display',serif;font-size:18px;color:${bal>0?'var(--danger)':'var(--green)'}">
+          ${bal>0?'₹'+bal+' still due':'All clear ✓'}
+        </span>
+      </div>
+    </div>`;
+  const rb=document.getElementById('rules-box');
+  if(rb&&rb.parentNode) rb.parentNode.insertBefore(sec,rb.nextSibling);
+}
+
+// ── RULES BOX ──
+function renderRulesBox(){
+  const cs=contribStartYM();
+  const cLabel=MONTHS[cfg.cycleStartMonth-1]+' '+cfg.cycleStartYear;
+  document.getElementById('rules-box').innerHTML=`<strong>📋 Contribution Rules</strong>
+    ✅ From <strong>${cLabel}</strong>: ₹<strong>${cfg.baseAmount}</strong> auto-due on <strong>${ord(cfg.startDay)}</strong> of every month<br>
+    🟡 After <strong>${ord(cfg.warnDay)}</strong>: Orange warning alert<br>
+    🔴 After <strong>${ord(cfg.penaltyDay)}</strong>: ₹<strong>${cfg.penaltyAmt}/day</strong> penalty (every ${cfg.compoundDays} day(s))<br>
+    📊 Unpaid balance carries to next month as arrears<br>
+    🔒 Only Admin can modify records`;
+}
+
+// ── EXPENSES: future months show current month's data until that month starts
+function renderExpenses(){
+  const list=document.getElementById('exp-list');
+  const effYM=displayMonth();  // future months redirect to current month
+  const exps=expsForMonth(effYM);
+  if(!exps.length){
+    const futNote=viewMonth>TODAY_YM?' (showing '+monthLabel(TODAY_YM)+')':'';
+    list.innerHTML=`<div class="empty-st"><div style="font-size:40px;margin-bottom:8px">🧾</div>
+      <div style="font-size:15px;font-weight:500">No expenses for ${monthLabel(effYM)}${futNote}</div>
+      <div style="font-size:13px;margin-top:4px">${isAdmin&&viewMonth<=TODAY_YM?'Add expenses using the button above.':''}</div></div>`;
+    return;
+  }
+  const total=exps.reduce((s,e)=>s+e.amount,0);
+  let html=`<div style="background:linear-gradient(135deg,#fde8e8,#fde8e8cc);border:1px solid rgba(176,32,32,.15);border-radius:var(--rsm);padding:12px 17px;margin-bottom:15px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:14px;font-weight:600;color:var(--danger)">🧾 Total Expenses — ${monthLabel(effYM)}${viewMonth>TODAY_YM?' (current)':''}</span>
+    <span style="font-family:'DM Serif Display',serif;font-size:24px;color:var(--danger)">₹${total.toLocaleString('en-IN')}</span></div>`;
+  exps.forEach(e=>{
+    const ico=CAT_ICO[e.cat]||'📦', bg=CAT_BG[e.cat]||'#f0e8fa';
+    const ds=new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+    // Find which bucket it lives in
+    const srcYM=Object.keys(allData).find(k=>(allData[k].expenses||[]).some(x=>x.id===e.id))||viewMonth;
+    const btns=isAdmin?`<div style="display:flex;flex-direction:column;gap:4px;margin-left:10px;flex-shrink:0">
+      <button class="btn btn-amber btn-xs" onclick="openEditExp(${e.id},'${srcYM}')">✏️ Edit</button>
+      <button class="btn btn-d btn-xs" onclick="delExpense(${e.id},'${srcYM}')">🗑 Del</button></div>`:'';
+    html+=`<div class="ei"><div class="ei-ico" style="background:${bg}">${ico}</div>
+      <div class="ei-body"><div class="ei-title">${e.desc}</div>
+      <div class="ei-meta"><span>📅 ${ds}</span><span class="cchip" style="background:${bg};color:#444">${e.cat}</span>${e.notes?`<span>· ${e.notes}</span>`:''}</div></div>
+      <div class="ei-amt">-₹${e.amount.toLocaleString('en-IN')}</div>${btns}</div>`;
+  });
+  list.innerHTML=html;
+}
+
+// ── PAY PAGE ──
+function renderPayPage(){
+  ['qr-amt','pi-amt','how-amt'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=(id==='pi-amt'?'₹':'')+cfg.baseAmount; });
+  document.getElementById('pi-soc').textContent=cfg.socName||'Society 406';
+  document.getElementById('pi-upi').textContent=cfg.upiId||'—';
+  document.getElementById('pi-acn').textContent=cfg.acName||'—';
+  document.getElementById('pi-due').textContent=ord(cfg.penaltyDay)+' of every month';
+  const qi=document.getElementById('qimg'), qp=document.getElementById('qph'), nq=document.getElementById('no-qr-note');
+  if(cfg.qrData){ qi.src=cfg.qrData; qi.style.display='block'; qp.style.display='none'; nq.style.display='none'; }
+  else{ qi.style.display='none'; qp.style.display='block'; nq.style.display='block'; }
+}
+
+// ── TABS ──
+function showTab(name){
+  ['overview','contrib','expenses','pay','admin','settings'].forEach(t=>{
+    document.getElementById('page-'+t).classList.toggle('active',t===name);
+    const tb=document.getElementById('tab-'+t); if(tb) tb.classList.toggle('active',t===name);
+  });
+  if(name==='settings') loadCfgForm();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ADMIN ACTIONS
+// ═══════════════════════════════════════════════════════════════
+function populateAdmSelects(){
+  const opts=FLATS.map(f=>`<option value="${f.id}">${f.name} · ${f.floor}</option>`).join('');
+  ['pay-flat','pen-flat','edit-flat-sel'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML='<option value="">— Select Flat —</option>'+opts; });
+  document.getElementById('pay-date').value=TODAY.toISOString().split('T')[0];
+}
+
+function recPayment(){
+  const fid=document.getElementById('pay-flat').value;
+  const amt=parseFloat(document.getElementById('pay-amt').value);
+  const date=document.getElementById('pay-date').value;
+  if(!fid){ toast('⚠ Select a flat'); return; }
+  if(!amt||amt<1){ toast('⚠ Enter valid amount'); return; }
+  const md=getMD(viewMonth);
+  md.contributions[fid].paid+=amt;
+  if(!md.contributions[fid].payments) md.contributions[fid].payments=[];
+  md.contributions[fid].payments.push({amt,date:date||TODAY.toISOString().split('T')[0]});
+  document.getElementById('pay-amt').value='';
+  saveSt(); renderAll(); toast('✅ Payment ₹'+amt+' recorded!');
+}
+
+function quickPay(fid){
+  const bal=flatBal(fid,viewMonth);
+  if(bal===0){ toast('ℹ Already fully paid'); return; }
+  if(!confirm('Mark remaining ₹'+bal+' as paid for this flat?')) return;
+  const md=getMD(viewMonth);
+  md.contributions[fid].paid+=bal;
+  if(!md.contributions[fid].payments) md.contributions[fid].payments=[];
+  md.contributions[fid].payments.push({amt:bal,date:TODAY.toISOString().split('T')[0]});
+  saveSt(); renderAll(); toast('✅ Payment recorded!');
+}
+
+function applyPenalty(){
+  const fid=document.getElementById('pen-flat').value;
+  const amt=parseFloat(document.getElementById('pen-amt').value);
+  if(!fid){ toast('⚠ Select a flat'); return; }
+  if(!amt||amt<1){ toast('⚠ Enter penalty amount'); return; }
+  getMD(viewMonth).contributions[fid].penalty+=amt;
+  document.getElementById('pen-amt').value='';
+  saveSt(); renderAll(); toast('⚠ Penalty ₹'+amt+' applied');
+}
+
+function doRollover(manual=true,fromYM=null){
+  const srcYM=fromYM||viewMonth;
+  if(manual&&!confirm('Start new month cycle from '+monthLabel(srcYM)+'?\nUnpaid balances carry as arrears.')) return;
+  const nxtYM=nextYM(srcYM);
+  const src=getMD(srcYM);
+  allData[nxtYM]={contributions:{},expenses:[]};
+  FLATS.forEach(f=>{
+    const carry=Math.max(0,flatDue(f.id,srcYM)-src.contributions[f.id].paid);
+    allData[nxtYM].contributions[f.id]={baseDue:autoBaseDue(nxtYM),paid:0,penalty:0,arrears:carry,payments:[]};
+  });
+  if(manual){ viewMonth=nxtYM; saveSt(); renderAll(); toast('🔄 New cycle started for '+monthLabel(nxtYM)+'!'); }
+  else { saveSt(); }
+}
+
+function changePin(){
+  const cur=document.getElementById('cur-pin').value;
+  const np=document.getElementById('new-pin').value;
+  const cp=document.getElementById('conf-pin').value;
+  if(cur!==adminPin){ toast('❌ Current PIN incorrect'); return; }
+  if(!np||np.length<4){ toast('⚠ PIN must be ≥ 4 digits'); return; }
+  if(np!==cp){ toast('⚠ PINs do not match'); return; }
+  adminPin=np;
+  ['cur-pin','new-pin','conf-pin'].forEach(i=>document.getElementById(i).value='');
+  saveSt(); toast('🔑 Admin PIN updated!');
+}
+
+// ── RESET ALL FLATS: deletes ALL contribution + payment data across ALL months ──
+function resetAllFlats(){
+  if(!confirm('RESET ALL FLATS TO ZERO?\n\nThis will DELETE ALL contribution, payment, and penalty data for ALL flats across ALL months.\n\nExpenses will NOT be deleted.\n\nThis CANNOT be undone.')) return;
+  // Wipe contribution data from every stored month
+  Object.keys(allData).forEach(ym=>{
+    allData[ym].contributions={};
+    // Expenses are preserved
+  });
+  saveSt(); renderAll();
+  toast('🔄 All flat data reset to zero across all months!');
+}
+
+function resetOneFlat(fid){
+  const f=FLATS.find(x=>x.id===fid);
+  if(!confirm('Reset '+f.name+' '+f.floor+' for '+monthLabel(viewMonth)+' to zero?')) return;
+  getMD(viewMonth).contributions[fid]={baseDue:0,paid:0,penalty:0,arrears:0,payments:[]};
+  saveSt(); renderAll(); toast('🔄 Flat reset!');
+}
+
+function deleteAllExpenses(){
+  if(!confirm('Delete ALL expenses for '+monthLabel(viewMonth)+'? Cannot be undone.')) return;
+  const toDelete=expsForMonth(viewMonth).map(e=>e.id);
+  Object.keys(allData).forEach(ym=>{
+    if(allData[ym].expenses) allData[ym].expenses=allData[ym].expenses.filter(e=>!toDelete.includes(e.id));
+  });
+  saveSt(); renderAll(); toast('🗑 All expenses deleted for '+monthLabel(viewMonth)+'!');
+}
+
+// ── FLAT EDIT MODAL ──
+let editFlatId=null;
+function openFlatEdit(fid){
+  editFlatId=fid;
+  const f=FLATS.find(x=>x.id===fid), c=getMD(viewMonth).contributions[fid];
+  document.getElementById('fem-title').textContent='✏️ Edit — '+f.name+' '+f.floor;
+  document.getElementById('fem-sub').textContent=f.block+' · '+monthLabel(viewMonth);
+  document.getElementById('fem-base').value=c.baseDue;
+  document.getElementById('fem-paid').value=c.paid;
+  document.getElementById('fem-pen').value=c.penalty;
+  document.getElementById('fem-arr').value=c.arrears;
+  document.getElementById('flat-edit-modal').classList.remove('hidden');
+}
+function openFlatEditFromSel(){
+  const fid=document.getElementById('edit-flat-sel').value;
+  if(!fid){ toast('⚠ Select a flat first'); return; }
+  openFlatEdit(fid);
+}
+function closeFlatEdit(){ document.getElementById('flat-edit-modal').classList.add('hidden'); editFlatId=null; }
+function saveFlatEdit(){
+  if(!editFlatId) return;
+  const base=parseFloat(document.getElementById('fem-base').value)||0;
+  const paid=parseFloat(document.getElementById('fem-paid').value)||0;
+  const pen =parseFloat(document.getElementById('fem-pen').value)||0;
+  const arr =parseFloat(document.getElementById('fem-arr').value)||0;
+  if(base<0||paid<0||pen<0||arr<0){ toast('⚠ Values cannot be negative'); return; }
+  getMD(viewMonth).contributions[editFlatId]={baseDue:base,paid,penalty:pen,arrears:arr,payments:getMD(viewMonth).contributions[editFlatId].payments||[]};
+  closeFlatEdit(); saveSt(); renderAll(); toast('✅ Flat record updated!');
+}
+function resetFlatZero(){
+  if(!editFlatId) return;
+  const f=FLATS.find(x=>x.id===editFlatId);
+  if(!confirm('Reset ALL amounts for '+f.name+' '+f.floor+' in '+monthLabel(viewMonth)+' to zero?')) return;
+  getMD(viewMonth).contributions[editFlatId]={baseDue:0,paid:0,penalty:0,arrears:0,payments:[]};
+  closeFlatEdit(); saveSt(); renderAll(); toast('🔄 Flat reset to zero!');
+}
+
+// ── EXPENSES CRUD ──
+function openAddExp(){
+  document.getElementById('ae-date').value=TODAY.toISOString().split('T')[0];
+  document.getElementById('add-exp-modal').classList.remove('hidden');
+}
+function closeAddExp(){ document.getElementById('add-exp-modal').classList.add('hidden'); }
+function addExpense(){
+  const desc=document.getElementById('ae-desc').value.trim();
+  const amt=parseFloat(document.getElementById('ae-amt').value);
+  const cat=document.getElementById('ae-cat').value;
+  const date=document.getElementById('ae-date').value;
+  const notes=document.getElementById('ae-notes').value.trim();
+  if(!desc){ toast('⚠ Enter description'); return; }
+  if(!amt||amt<1){ toast('⚠ Enter valid amount'); return; }
+  if(!date){ toast('⚠ Enter date'); return; }
+  const expYM=date.substring(0,7);
+  ensureMonth(expYM);
+  allData[expYM].expenses.push({id:Date.now(),desc,amount:amt,cat,date,notes});
+  closeAddExp();
+  ['ae-desc','ae-amt','ae-notes'].forEach(i=>document.getElementById(i).value='');
+  viewMonth=expYM;  // switch view to expense's month so user sees it
+  saveSt(); renderAll(); toast('✅ Expense added for '+monthLabel(expYM)+'!');
+}
+function delExpense(id,srcYM){
+  if(!confirm('Delete this expense?')) return;
+  const ym=srcYM||viewMonth;
+  if(allData[ym]) allData[ym].expenses=allData[ym].expenses.filter(e=>e.id!==id);
+  saveSt(); renderAll(); toast('🗑 Expense deleted');
+}
+function openEditExp(id,srcYM){
+  const ym=srcYM||viewMonth;
+  const e=(allData[ym]?.expenses||[]).find(x=>x.id===id);
+  if(!e){ toast('❌ Expense not found'); return; }
+  document.getElementById('ee-id').value=id;
+  document.getElementById('ee-id').dataset.srcYm=ym;
+  document.getElementById('ee-desc').value=e.desc;
+  document.getElementById('ee-amt').value=e.amount;
+  document.getElementById('ee-cat').value=e.cat;
+  document.getElementById('ee-date').value=e.date;
+  document.getElementById('ee-notes').value=e.notes||'';
+  document.getElementById('edit-exp-modal').classList.remove('hidden');
+}
+function closeEditExp(){ document.getElementById('edit-exp-modal').classList.add('hidden'); }
+function saveEditExp(){
+  const id=parseInt(document.getElementById('ee-id').value);
+  const srcYM=document.getElementById('ee-id').dataset.srcYm||viewMonth;
+  const desc=document.getElementById('ee-desc').value.trim();
+  const amt=parseFloat(document.getElementById('ee-amt').value);
+  const cat=document.getElementById('ee-cat').value;
+  const date=document.getElementById('ee-date').value;
+  const notes=document.getElementById('ee-notes').value.trim();
+  if(!desc){ toast('⚠ Enter description'); return; }
+  if(!amt||amt<1){ toast('⚠ Enter valid amount'); return; }
+  const newYM=date.substring(0,7);
+  if(newYM!==srcYM){
+    if(allData[srcYM]) allData[srcYM].expenses=allData[srcYM].expenses.filter(e=>e.id!==id);
+    ensureMonth(newYM); allData[newYM].expenses.push({id,desc,amount:amt,cat,date,notes});
+    viewMonth=newYM; toast('✅ Expense moved to '+monthLabel(newYM)+'!');
+  } else {
+    const idx=(allData[srcYM]?.expenses||[]).findIndex(x=>x.id===id);
+    if(idx===-1){ toast('❌ Not found'); return; }
+    allData[srcYM].expenses[idx]={id,desc,amount:amt,cat,date,notes};
+    toast('✅ Expense updated!');
+  }
+  closeEditExp(); saveSt(); renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════════════════════════════
+function loadCfgForm(){
+  const s=(id,v)=>{ const el=document.getElementById(id); if(el) el.value=v; };
+  s('cfg-base',cfg.baseAmount);
+  s('cfg-start-month',cfg.cycleStartMonth);  // "Contribution Start Month"
+  s('cfg-start-year', cfg.cycleStartYear);   // "Contribution Start Year"
+  s('cfg-start',cfg.startDay); s('cfg-warn',cfg.warnDay);
+  s('cfg-pday',cfg.penaltyDay); s('cfg-uday',cfg.updateDay);
+  s('cfg-pamt',cfg.penaltyAmt); s('cfg-cdays',cfg.compoundDays);
+  s('cfg-upi',cfg.upiId); s('cfg-acn',cfg.acName); s('cfg-soc',cfg.socName);
+  updateCfgPreview();
+  ['cfg-base','cfg-start-month','cfg-start-year','cfg-start','cfg-warn','cfg-pday','cfg-uday','cfg-pamt','cfg-cdays']
+    .forEach(id=>{ const el=document.getElementById(id); if(el) el.oninput=updateCfgPreview; });
+  refreshQRPreview();
+}
+
+function updateCfgPreview(){
+  const gv=id=>parseInt(document.getElementById(id)?.value)||0;
+  const ba=gv('cfg-base')||cfg.baseAmount;
+  const cm=gv('cfg-start-month')||cfg.cycleStartMonth;
+  const cy=gv('cfg-start-year')||cfg.cycleStartYear;
+  const sd=gv('cfg-start')||cfg.startDay;
+  const wd=gv('cfg-warn')||cfg.warnDay;
+  const pd=gv('cfg-pday')||cfg.penaltyDay;
+  const ud=gv('cfg-uday')||cfg.updateDay;
+  const pa=gv('cfg-pamt')||cfg.penaltyAmt;
+  const cd=gv('cfg-cdays')||cfg.compoundDays;
+  const el=document.getElementById('cfg-prev');
+  if(el) el.innerHTML=`<strong>📋 Preview — How the cycle will work:</strong><br>
+    🗓 Navigation: <strong>Oct 2025 → present</strong> (fixed, never changes, no login risk)<br>
+    ✅ From <strong>${MONTHS[cm-1]} ${cy}</strong>: ₹<strong>${ba}</strong> auto-due on <strong>${ord(sd)}</strong> of every month<br>
+    🟡 After <strong>${ord(wd)}</strong> — Orange warning alert<br>
+    🔴 After <strong>${ord(pd)}</strong> — ₹<strong>${pa}</strong>/day penalty (every ${cd} day(s))<br>
+    🔄 On <strong>${ord(ud)}</strong> — New cycle auto-starts`;
+}
+
+function saveSettings(){
+  const gi=id=>document.getElementById(id);
+  const gv=id=>parseInt(gi(id)?.value)||0;
+  const ba=gv('cfg-base');
+  const cm=gv('cfg-start-month'), cy=gv('cfg-start-year');
+  const sd=gv('cfg-start'), wd=gv('cfg-warn'), pd=gv('cfg-pday'), ud=gv('cfg-uday');
+  const pa=gv('cfg-pamt'), cd=gv('cfg-cdays');
+  const upi=gi('cfg-upi')?.value.trim()||'';
+  const acn=gi('cfg-acn')?.value.trim()||'';
+  const soc=gi('cfg-soc')?.value.trim()||'Society 406';
+
+  // Validate
+  if(!ba||ba<100){ toast('⚠ Min contribution ₹100'); return; }
+  if(!cm||cm<1||cm>12){ toast('⚠ Contribution month 1–12'); return; }
+  if(!cy||cy<2025||cy>2099){ toast('⚠ Enter valid year'); return; }
+  if(!sd||sd<1||sd>28){ toast('⚠ Start day 1–28'); return; }
+  if(!wd||wd<=sd){ toast('⚠ Warning day must be after start day'); return; }
+  if(!pd||pd<=wd){ toast('⚠ Penalty day must be after warning day'); return; }
+  if(!ud||ud<1||ud>28){ toast('⚠ Update day 1–28'); return; }
+  if(pa<0){ toast('⚠ Penalty ≥ 0'); return; }
+  if(!cd||cd<1){ toast('⚠ Compound days ≥ 1'); return; }
+
+  // ── CRITICAL FIX: Only update contribution/penalty logic.
+  // Do NOT change navigation start (NAV_START is hardcoded).
+  // This prevents the login loop completely. ──
+  cfg = {...cfg,
+    baseAmount:ba,
+    cycleStartMonth:cm, cycleStartYear:cy,
+    penaltyStartMonth:cm, penaltyStartYear:cy,
+    startDay:sd, warnDay:wd, penaltyDay:pd, updateDay:ud,
+    penaltyAmt:pa, compoundDays:cd,
+    upiId:upi, acName:acn, socName:soc
+  };
+
+  // Only update CURRENT and FUTURE months. Past months are NEVER modified.
+  const cs = contribStartYM();
+  Object.keys(allData).forEach(ym=>{
+    if(ym < TODAY_YM) return;  // skip past months entirely — preserve all historical data
+    FLATS.forEach(f=>{
+      if(allData[ym].contributions[f.id]){
+        allData[ym].contributions[f.id].baseDue = ym < cs ? 0 : ba;
+      }
+    });
+  });
+
+  // Keep viewMonth valid (don't go before NAV_START)
+  if(viewMonth < NAV_START) viewMonth = NAV_START;
+
+  saveSt();
+  // ── CRITICAL: never touch login-screen or app visibility here ──
+  try{ renderAll(); }catch(err){ console.error('renderAll after saveSettings:',err); }
+  toast('✅ Settings saved! Contribution ₹'+ba+' starts '+MONTHS[cm-1]+' '+cy+'.');
+}
+
+function handleQR(event){
+  const file=event.target.files[0]; if(!file) return;
+  if(file.size>5*1024*1024){ toast('⚠ Max 5MB'); return; }
+  const reader=new FileReader();
+  reader.onload=e=>{ cfg.qrData=e.target.result; refreshQRPreview(); renderPayPage(); saveSt(); toast('✅ QR uploaded!'); };
+  reader.readAsDataURL(file);
+}
+function refreshQRPreview(){
+  const wrap=document.getElementById('qr-preview-wrap'), prev=document.getElementById('qr-preview');
+  if(cfg.qrData){
+    prev.src=cfg.qrData; wrap.style.display='block';
+    document.getElementById('qup-ico').textContent='✅';
+    document.getElementById('qup-txt').innerHTML='<strong style="color:var(--green)">QR uploaded!</strong><br><span style="font-size:12px;color:var(--ink-mu)">Click to replace</span>';
+  } else {
+    wrap.style.display='none';
+    document.getElementById('qup-ico').textContent='📷';
+    document.getElementById('qup-txt').innerHTML='<strong>Click to upload QR Code image</strong><br>JPG, PNG · Max 5MB';
+  }
+}
+function removeQR(){
+  if(!confirm('Remove QR code?')) return;
+  cfg.qrData=null; document.getElementById('qr-file').value='';
+  refreshQRPreview(); renderPayPage(); saveSt(); toast('🗑 QR removed');
+}
+function openQRLightbox(){
+  const lb=document.getElementById('qr-lightbox'); if(!lb) return;
+  const li=document.getElementById('lb-qimg'), lp=document.getElementById('lb-qph');
+  if(cfg.qrData){ li.src=cfg.qrData; li.style.display='block'; lp.style.display='none'; }
+  else { li.style.display='none'; lp.style.display='block'; }
+  const lu=document.getElementById('lb-upi'); if(lu) lu.textContent=cfg.upiId?'UPI: '+cfg.upiId:'';
+  const la=document.getElementById('lb-amt'); if(la) la.textContent=cfg.baseAmount?'₹'+cfg.baseAmount:'';
+  lb.style.display='flex';
+}
+function closeQRLightbox(){
+  const lb=document.getElementById('qr-lightbox'); if(lb) lb.style.display='none';
+}
+
+// ── EXCEL DOWNLOAD — full month-wise breakdown from start to today ──
+function downloadExcel(){
+  const rows=[], toYM=TODAY_YM;
+  const genDate=TODAY.toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
+  rows.push(['Society 406 — Complete Report']);
+  rows.push(['Generated: '+genDate,'','Period: Oct 2025 – '+monthLabel(toYM)]);
+  rows.push([]);
+
+  // MONTH-WISE CONTRIBUTIONS
+  rows.push(['=== CONTRIBUTIONS — MONTH-WISE PAYMENT DETAILS ===']);
+  rows.push([]);
+  let cur=NAV_START;
+  while(cur<=toYM){
+    const mLabel=monthLabel(cur);
+    rows.push(['-- '+mLabel+' --']);
+    rows.push(['Flat','Floor','Block','Base Due','Penalty','Total Due','Paid','Balance','Status','Payment Date(s)','Payment Amount(s)']);
+    FLATS.forEach(f=>{
+      const md=getMD(cur), cc=md.contributions[f.id];
+      const bd=cc.baseDue, pen=getEffectivePenalty(f.id,cur), arr=cc.arrears||0;
+      const paid=cc.paid, due=bd+pen+arr, bal=Math.max(0,due-paid);
+      const sLabel={paid:'Paid',warn:'Due Soon',danger:'Overdue',ok:'Pending'}[getStatus(f.id,cur)]||'';
+      let payDates='—', payAmts='—';
+      if(cc.payments&&cc.payments.length){
+        payDates=cc.payments.map(p=>p.date||mLabel).join(' | ');
+        payAmts=cc.payments.map(p=>'Rs.'+p.amt).join(' | ');
+      } else if(paid>0){ payDates=mLabel; payAmts='Rs.'+paid; }
+      rows.push([f.name,f.floor,f.block,bd,pen,due,paid,bal,sLabel,payDates,payAmts]);
+    });
+    let mCol=0, mPend=0;
+    FLATS.forEach(f=>{ const cc=allData[cur]?.contributions[f.id]; if(cc){ mCol+=cc.paid||0; mPend+=flatBal(f.id,cur); } });
+    rows.push(['','','MONTH TOTAL','','','',mCol,mPend,'','','']);
+    rows.push([]);
+    cur=nextYM(cur);
+  }
+
+  // MONTH-WISE EXPENSES
+  rows.push(['=== EXPENSES — MONTH-WISE ===']);
+  rows.push([]);
+  cur=NAV_START;
+  while(cur<=toYM){
+    const mExps=expsForMonth(cur);
+    if(mExps.length){
+      rows.push(['-- '+monthLabel(cur)+' --']);
+      rows.push(['Date','Description','Category','Amount (Rs.)','Notes']);
+      mExps.forEach(e=>{
+        const ds=new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+        rows.push([ds,e.desc,e.cat.replace(/[^a-zA-Z0-9 ]/g,''),e.amount,e.notes||'']);
+      });
+      rows.push(['','MONTH TOTAL','',''+mExps.reduce((s,e)=>s+e.amount,0),'']);
+      rows.push([]);
+    }
+    cur=nextYM(cur);
+  }
+
+  // CUMULATIVE SUMMARY
+  rows.push(['=== CUMULATIVE SUMMARY ===']);
+  rows.push(['Flat','Floor','Block','Total Base Due','Total Penalty','Total Due','Total Paid','Total Balance','Status']);
+  FLATS.forEach(f=>{
+    const bd=cumBaseDue(f.id,toYM), pen=cumPenalty(f.id,toYM), paid=cumPaid(f.id,toYM);
+    const due=bd+pen, bal=Math.max(0,due-paid), s=getStatus(f.id,toYM);
+    rows.push([f.name,f.floor,f.block,bd,pen,due,paid,bal,{paid:'Paid',warn:'Due Soon',danger:'Overdue',ok:'Pending'}[s]||s]);
+  });
+  rows.push([]);
+  rows.push(['Total Collected','Rs.'+totCollected(toYM)]);
+  rows.push(['Total Spent','Rs.'+totSpent(toYM)]);
+  rows.push(['Society Balance','Rs.'+(totCollected(toYM)-totSpent(toYM))]);
+  rows.push(['Pending Dues','Rs.'+totPending(toYM)]);
+  rows.push(['Flats Paid',paidCnt(toYM)+'/7']);
+
+  const csv=rows.map(r=>r.map(c=>{ const s=String(c===undefined||c===null?'':c); return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s; }).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download='Society_406_Full_Report_'+toYM+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  toast('Full report downloaded (Oct 2025 to '+monthLabel(toYM)+')!');
+}
+
+// ── TOAST ──
+function toast(msg){
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(40px)'; t.style.transition='all .3s'; setTimeout(()=>t.remove(),380); },2800);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+(function init(){
+  loadSt();                          // loads localStorage immediately, then Firebase async
+  cfg = {...DEFAULT_CFG, ...cfg};   // merge: ensure all new fields exist
+  fixOldData();                      // zero out stale baseDue for pre-contribStart months
+  ensureMonth(TODAY_YM);
+  // Update Firebase status badge once DOM is ready
+  document.addEventListener('DOMContentLoaded',()=>{
+    const fb=document.getElementById('fb-status');
+    if(window._fbReady){ if(fb){ fb.textContent='🔥 Live'; fb.style.color='rgba(74,221,128,.9)'; fb.style.background='rgba(45,122,79,.25)'; } }
+    else {
+      document.addEventListener('firebase-ready',()=>{
+        if(fb){ fb.textContent='🔥 Live'; fb.style.color='rgba(74,221,128,.9)'; fb.style.background='rgba(45,122,79,.25)'; }
+      },{once:true});
+    }
+  });
+})();
+</script>
+
+
+<!-- ── QR LIGHTBOX MODAL ── -->
+<div id="qr-lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:20px" onclick="if(event.target===this)closeQRLightbox()">
+  <div style="position:relative;background:#fff;border-radius:20px;padding:24px;max-width:400px;width:100%;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.5)">
+    <button onclick="closeQRLightbox()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:24px;cursor:pointer;color:#888;line-height:1">&#10005;</button>
+    <div style="font-family:'DM Serif Display',serif;font-size:18px;margin-bottom:4px;color:#1a1a2e" id="lb-title">🏦 Society 406 — Scan to Pay</div>
+    <div style="font-size:13px;color:#8888aa;margin-bottom:16px" id="lb-sub">Use any UPI app to scan and pay</div>
+    <div id="lb-qr-wrap" style="width:280px;height:280px;margin:0 auto 16px;border-radius:12px;overflow:hidden;border:3px solid #e2e8f0;background:#f0ede6;display:flex;align-items:center;justify-content:center">
+      <img id="lb-qimg" src="" alt="QR Code" style="width:100%;height:100%;object-fit:contain;display:none">
+      <div id="lb-qph" style="font-size:13px;color:#8888aa;padding:20px;text-align:center">No QR uploaded yet</div>
+    </div>
+    <div id="lb-upi" style="font-size:13px;color:#0d7377;font-weight:600;margin-bottom:6px"></div>
+    <div id="lb-amt" style="font-family:'DM Serif Display',serif;font-size:26px;color:#2d7a4f;margin-bottom:14px"></div>
+    <div style="font-size:12px;color:#b06000;background:#fff3dc;border-radius:8px;padding:10px 14px">
+      ⚠ After paying, inform admin with screenshot so they can mark it in the system.
+    </div>
+  </div>
+</div>
+
+<!-- ── EXCEL DOWNLOAD (no modal needed - direct download) ── -->
+</body>
+</html>
