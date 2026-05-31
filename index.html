@@ -6,34 +6,41 @@
 <title>Society 406 — Maintenance Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<!-- Firebase SDK -->
+
+<!-- ══════════════════════════════════════════════════════
+     FIREBASE — Real-time shared data for all members
+     Replace the 6 YOUR_... values below with your own
+     Firebase project config (Project Settings → Your apps)
+════════════════════════════════════════════════════════ -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { initializeApp }         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, onValue }
+                                  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  // ── FIREBASE CONFIG ── Replace with YOUR project values ──
-  const firebaseConfig = {
-    apiKey: "AIzaSyDDoZiFcrBOAHrShhKzGiKyEKAXtGPCk5M",
-    authDomain: "society-406.firebaseapp.com",
-    databaseURL: "https://society-406-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "society-406",
-    storageBucket: "society-406.firebasestorage.app",
-    messagingSenderId: "679666442244",
-    appId: "1:679666442244:web:39cd2bef3e31273baf9551",
-    measurementId: "G-6KM3CDJ1HX"
-  };
+// ─── PASTE YOUR FIREBASE CONFIG HERE ───────────────────
+const firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.asia-south1.firebasedatabase.app",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+// ───────────────────────────────────────────────────────
 
-  const fireApp = initializeApp(firebaseConfig);
-  const fireDB  = getDatabase(fireApp);
+const _app = initializeApp(firebaseConfig);
+const _db  = getDatabase(_app);
+const FB   = 'society406/';   // root path in your Firebase DB
 
-  // Expose helpers to global scope so the rest of the app can call them
-  window._fbSet = function(path, data){ return set(ref(fireDB, path), data); };
-  window._fbGet = function(path){ return get(ref(fireDB, path)).then(s=>s.exists()?s.val():null); };
-  window._fbListen = function(path, cb){ onValue(ref(fireDB, path), snap=>cb(snap.exists()?snap.val():null)); };
+// Expose 3 helpers to the global scope (used by saveSt / loadSt below)
+window._fbSet    = (path, data) => set(ref(_db, path), data);
+window._fbGet    = (path)       => get(ref(_db, path)).then(s => s.exists() ? s.val() : null);
+window._fbListen = (path, cb)   => onValue(ref(_db, path), s => cb(s.exists() ? s.val() : null));
+window._FB       = FB;
+window._fbReady  = true;
 
-  // Signal that Firebase is ready
-  window._fbReady = true;
-  document.dispatchEvent(new Event('firebase-ready'));
+document.dispatchEvent(new Event('firebase-ready'));
 </script>
 <style>
 :root{
@@ -381,7 +388,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
       <div class="u-av" id="u-av">🏠</div>
       <div><div class="u-nm" id="u-nm">Member</div><div class="r-pill r-mem" id="u-role">MEMBER</div></div>
     </div>
-    <div id="fb-status" style="font-size:11px;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.15)" title="Firebase sync status">⏳ Connecting…</div>
+    <span id="fb-badge" style="font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(255,255,255,.12);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.15)">⏳ Connecting…</span>
     <button class="btn-lo" onclick="doLogout()">← Logout</button>
   </div>
 </div>
@@ -820,9 +827,12 @@ function getEffectivePenalty(fid, ym){
   const c = allData[ym] && allData[ym].contributions[fid];
   const stored = c ? (c.penalty || 0) : 0;
   if(ym === TODAY_YM){
-    // Live month: use larger of stored or live auto-computed value
     const d = dom();
     if(d <= cfg.penaltyDay) return stored;
+    // KEY FIX: if member has already paid enough to cover baseDue+arrears+stored_penalty
+    // then their balance is zero — do NOT grow penalty any further.
+    const rawDue = (c ? (c.baseDue||0) : 0) + stored + (c ? (c.arrears||0) : 0);
+    if(c && rawDue > 0 && c.paid >= rawDue) return stored;  // frozen — paid in full
     const live = cfg.penaltyAmt * Math.ceil((d - cfg.penaltyDay) / cfg.compoundDays);
     return Math.max(stored, live);
   }
@@ -935,93 +945,96 @@ function getStatus(fid, ym){
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  PERSISTENCE — Firebase Realtime Database (shared) + localStorage (fallback)
+//  PERSISTENCE  —  Firebase (shared/live) + localStorage (fallback)
 // ═══════════════════════════════════════════════════════════════
-const FB_PATH = 'society406/'; // root path in Firebase DB
 
-// ── SAVE: write to Firebase AND localStorage ──
+// ── SAVE ──────────────────────────────────────────────────────
+// Writes to BOTH localStorage (instant) AND Firebase (shared).
+// PIN is intentionally kept in localStorage only for security.
 function saveSt(){
-  const payload = { cfg: JSON.parse(JSON.stringify(cfg)), data: JSON.parse(JSON.stringify(allData)) };
-  // Always save to localStorage as instant fallback
+  // 1. localStorage — always, instant
   try{
     localStorage.setItem(SK.cfg,  JSON.stringify(cfg));
     localStorage.setItem(SK.data, JSON.stringify(allData));
     localStorage.setItem(SK.pin,  adminPin);
-  }catch(e){}
-  // Save to Firebase (async — non-blocking)
-  if(window._fbReady && window._fbSet){
-    window._fbSet(FB_PATH+'cfg',  JSON.parse(JSON.stringify(cfg)))
-      .catch(e=>console.warn('Firebase cfg save failed:',e));
-    window._fbSet(FB_PATH+'data', JSON.parse(JSON.stringify(allData)))
-      .catch(e=>console.warn('Firebase data save failed:',e));
-    // Note: PIN is stored only in localStorage for security — never in Firebase
+  }catch(e){ console.warn('localStorage save failed',e); }
+
+  // 2. Firebase — async, non-blocking
+  if(window._fbReady){
+    const FB = window._FB;
+    window._fbSet(FB+'cfg',  JSON.parse(JSON.stringify(cfg)))
+      .catch(e=>console.warn('Firebase cfg save:',e));
+    window._fbSet(FB+'data', JSON.parse(JSON.stringify(allData)))
+      .catch(e=>console.warn('Firebase data save:',e));
   }
+
   showSaveInd();
 }
 
-// ── LOAD: try Firebase first, fallback to localStorage ──
+// ── LOAD ──────────────────────────────────────────────────────
+// On startup: loads localStorage immediately (fast first paint),
+// then loads Firebase (authoritative) and refreshes the UI.
 function loadSt(){
-  // Load from localStorage immediately (fast start)
+  // Fast path — localStorage
   try{
     const c=localStorage.getItem(SK.cfg);  if(c) cfg={...DEFAULT_CFG,...JSON.parse(c)};
     const d=localStorage.getItem(SK.data); if(d) allData=JSON.parse(d);
     const p=localStorage.getItem(SK.pin);  if(p) adminPin=p;
   }catch(e){ console.warn('localStorage load failed',e); }
 
-  // Then load from Firebase (authoritative) — if available
-  if(window._fbReady && window._fbGet){
-    _loadFromFirebase();
-  } else {
-    // Firebase not ready yet — wait for it
-    document.addEventListener('firebase-ready', _loadFromFirebase, {once:true});
-  }
+  // Authoritative path — Firebase
+  // If Firebase is already initialised, load now; otherwise wait for the event.
+  if(window._fbReady){ _loadFirebase(); }
+  else { document.addEventListener('firebase-ready', _loadFirebase, {once:true}); }
 }
 
-function _loadFromFirebase(){
+function _loadFirebase(){
   if(!window._fbGet) return;
-  window._fbGet(FB_PATH+'cfg').then(fbCfg=>{
+  const FB = window._FB;
+  window._fbGet(FB+'cfg').then(fbCfg=>{
     if(fbCfg){
       cfg = {...DEFAULT_CFG, ...fbCfg};
       localStorage.setItem(SK.cfg, JSON.stringify(cfg));
     }
-    return window._fbGet(FB_PATH+'data');
+    return window._fbGet(FB+'data');
   }).then(fbData=>{
     if(fbData){
       allData = fbData;
       localStorage.setItem(SK.data, JSON.stringify(allData));
     }
-    // Data loaded from Firebase — re-run init steps
+    // Re-run init steps so UI reflects Firebase data
     cfg = {...DEFAULT_CFG, ...cfg};
     fixOldData();
     ensureMonth(TODAY_YM);
-    // If app is already open (user is logged in), re-render with fresh data
-    if(currentUser) { renderAll(); showSaveInd(); }
-    // Start live listener for real-time updates
-    _startFirebaseListener();
-  }).catch(e=>console.warn('Firebase load failed, using localStorage:',e));
+    if(currentUser) renderAll();       // refresh if user is already logged in
+    _updateFbBadge(true);
+    _startLiveListeners();             // begin real-time sync
+  }).catch(e=>{
+    console.warn('Firebase load failed — using local data.',e);
+    _updateFbBadge(false);
+  });
 }
 
-// ── LIVE LISTENER: auto-refresh for all members when admin saves ──
-let _listenersStarted=false;
-function _startFirebaseListener(){
-  if(_listenersStarted||!window._fbListen) return;
-  _listenersStarted=true;
+// ── LIVE LISTENERS ────────────────────────────────────────────
+// Keep every browser tab in sync: when admin saves, members see
+// the update automatically within ~1–2 seconds.
+let _listening = false;
+function _startLiveListeners(){
+  if(_listening || !window._fbListen) return;
+  _listening = true;
+  const FB = window._FB;
 
-  // Listen for cfg changes
-  window._fbListen(FB_PATH+'cfg', fbCfg=>{
+  window._fbListen(FB+'cfg', fbCfg=>{
     if(!fbCfg) return;
-    const newCfgStr=JSON.stringify(fbCfg);
-    if(newCfgStr===JSON.stringify(cfg)) return; // no change
-    cfg = {...DEFAULT_CFG,...fbCfg};
+    if(JSON.stringify(fbCfg)===JSON.stringify(cfg)) return; // no change
+    cfg = {...DEFAULT_CFG, ...fbCfg};
     localStorage.setItem(SK.cfg, JSON.stringify(cfg));
     if(currentUser) renderAll();
   });
 
-  // Listen for data changes
-  window._fbListen(FB_PATH+'data', fbData=>{
+  window._fbListen(FB+'data', fbData=>{
     if(!fbData) return;
-    const newDataStr=JSON.stringify(fbData);
-    if(newDataStr===JSON.stringify(allData)) return; // no change
+    if(JSON.stringify(fbData)===JSON.stringify(allData)) return; // no change
     allData = fbData;
     localStorage.setItem(SK.data, JSON.stringify(allData));
     fixOldData();
@@ -1029,17 +1042,27 @@ function _startFirebaseListener(){
     if(currentUser) renderAll();
   });
 }
+
+// ── STATUS BADGE ──────────────────────────────────────────────
+function _updateFbBadge(online){
+  const el=document.getElementById('fb-badge');
+  if(!el) return;
+  if(online){
+    el.textContent='🔥 Live';
+    el.style.cssText='font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(45,122,79,.3);color:rgba(74,221,128,.95);border:1px solid rgba(74,221,128,.3)';
+  } else {
+    el.textContent='💾 Offline';
+    el.style.cssText='font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(176,96,0,.25);color:rgba(255,193,70,.9);border:1px solid rgba(176,96,0,.3)';
+  }
+}
+
+// ── showSaveInd ───────────────────────────────────────────────
 function showSaveInd(){
   const old=document.getElementById('save-ind'); if(old) old.remove();
   const el=document.createElement('div'); el.id='save-ind'; el.className='save-indicator';
-  el.innerHTML='✅ Changes saved'; document.body.appendChild(el);
-  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .4s'; setTimeout(()=>el.remove(),450); },1800);
-  // Update Firebase status badge
-  const fb=document.getElementById('fb-status');
-  if(fb){
-    if(window._fbReady){ fb.textContent='🔥 Live'; fb.style.color='rgba(74,221,128,.9)'; fb.style.background='rgba(45,122,79,.25)'; }
-    else { fb.textContent='💾 Local'; fb.style.color='rgba(255,193,70,.9)'; fb.style.background='rgba(176,96,0,.2)'; }
-  }
+  el.innerHTML=window._fbReady?'🔥 Saved &amp; synced to all members':'✅ Saved locally';
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity .4s'; setTimeout(()=>el.remove(),450); },2200);
 }
 
 // Fix stale data: ensure pre-contribStart months have baseDue=0, penalty=0
@@ -1611,9 +1634,14 @@ function recPayment(){
   if(!fid){ toast('⚠ Select a flat'); return; }
   if(!amt||amt<1){ toast('⚠ Enter valid amount'); return; }
   const md=getMD(viewMonth);
-  md.contributions[fid].paid+=amt;
-  if(!md.contributions[fid].payments) md.contributions[fid].payments=[];
-  md.contributions[fid].payments.push({amt,date:date||TODAY.toISOString().split('T')[0]});
+  const c=md.contributions[fid];
+  // CRITICAL FIX: freeze the live penalty at the exact moment of payment.
+  // Without this, penalty keeps growing in getEffectivePenalty even after full payment.
+  const effPen=getEffectivePenalty(fid,viewMonth);
+  if(effPen>(c.penalty||0)) c.penalty=effPen;
+  c.paid+=amt;
+  if(!c.payments) c.payments=[];
+  c.payments.push({amt,date:date||TODAY.toISOString().split('T')[0]});
   document.getElementById('pay-amt').value='';
   saveSt(); renderAll(); toast('✅ Payment ₹'+amt+' recorded!');
 }
@@ -1623,9 +1651,13 @@ function quickPay(fid){
   if(bal===0){ toast('ℹ Already fully paid'); return; }
   if(!confirm('Mark remaining ₹'+bal+' as paid for this flat?')) return;
   const md=getMD(viewMonth);
-  md.contributions[fid].paid+=bal;
-  if(!md.contributions[fid].payments) md.contributions[fid].payments=[];
-  md.contributions[fid].payments.push({amt:bal,date:TODAY.toISOString().split('T')[0]});
+  const c=md.contributions[fid];
+  // Freeze live penalty before marking paid (same fix as recPayment)
+  const effPen=getEffectivePenalty(fid,viewMonth);
+  if(effPen>(c.penalty||0)) c.penalty=effPen;
+  c.paid+=bal;
+  if(!c.payments) c.payments=[];
+  c.payments.push({amt:bal,date:TODAY.toISOString().split('T')[0]});
   saveSt(); renderAll(); toast('✅ Payment recorded!');
 }
 
@@ -2014,20 +2046,12 @@ function toast(msg){
 //  INIT
 // ═══════════════════════════════════════════════════════════════
 (function init(){
-  loadSt();                          // loads localStorage immediately, then Firebase async
+  loadSt();                          // localStorage immediately; Firebase async
   cfg = {...DEFAULT_CFG, ...cfg};   // merge: ensure all new fields exist
   fixOldData();                      // zero out stale baseDue for pre-contribStart months
   ensureMonth(TODAY_YM);
-  // Update Firebase status badge once DOM is ready
-  document.addEventListener('DOMContentLoaded',()=>{
-    const fb=document.getElementById('fb-status');
-    if(window._fbReady){ if(fb){ fb.textContent='🔥 Live'; fb.style.color='rgba(74,221,128,.9)'; fb.style.background='rgba(45,122,79,.25)'; } }
-    else {
-      document.addEventListener('firebase-ready',()=>{
-        if(fb){ fb.textContent='🔥 Live'; fb.style.color='rgba(74,221,128,.9)'; fb.style.background='rgba(45,122,79,.25)'; }
-      },{once:true});
-    }
-  });
+  // Show "Connecting…" badge; Firebase module will update it once ready
+  document.addEventListener('firebase-ready', ()=>_updateFbBadge(true), {once:true});
 })();
 </script>
 
