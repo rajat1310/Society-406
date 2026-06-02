@@ -9,16 +9,11 @@
 
 <!-- ══════════════════════════════════════════════════════
      FIREBASE — Real-time shared data for all members
-     Replace the 6 YOUR_... values below with your own
-     Firebase project config (Project Settings → Your apps)
+     ✏️  Only change the 6 YOUR_... values below.
+     Do NOT change anything else in this block.
 ════════════════════════════════════════════════════════ -->
-<script type="module">
-import { initializeApp }         from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, get, onValue }
-                                  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-// ─── PASTE YOUR FIREBASE CONFIG HERE ───────────────────
-const firebaseConfig = {
+<script>
+window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyDDoZiFcrBOAHrShhKzGiKyEKAXtGPCk5M",
   authDomain: "society-406.firebaseapp.com",
   databaseURL: "https://society-406-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -26,22 +21,47 @@ const firebaseConfig = {
   storageBucket: "society-406.firebasestorage.app",
   messagingSenderId: "679666442244",
   appId: "1:679666442244:web:39cd2bef3e31273baf9551",
-  measurementId: "G-6KM3CDJ1HX"
 };
-// ───────────────────────────────────────────────────────
 
-const _app = initializeApp(firebaseConfig);
-const _db  = getDatabase(_app);
-const FB   = 'society406/';   // root path in your Firebase DB
-
-// Expose 3 helpers to the global scope (used by saveSt / loadSt below)
-window._fbSet    = (path, data) => set(ref(_db, path), data);
-window._fbGet    = (path)       => get(ref(_db, path)).then(s => s.exists() ? s.val() : null);
-window._fbListen = (path, cb)   => onValue(ref(_db, path), s => cb(s.exists() ? s.val() : null));
-window._FB       = FB;
-window._fbReady  = true;
-
-document.dispatchEvent(new Event('firebase-ready'));
+// Load Firebase using dynamic import — works on GitHub Pages, not blocked by CORS
+// This runs after the page loads, so the login UI is always immediately available.
+window.addEventListener('load', function() {
+  var cfg = window.FIREBASE_CONFIG;
+  // Only initialise if config values have been filled in
+  var ready = cfg.apiKey && cfg.apiKey !== 'YOUR_API_KEY'
+           && cfg.databaseURL && cfg.databaseURL.indexOf('YOUR_PROJECT_ID') === -1;
+  if (!ready) {
+    console.info('Society 406: Firebase config not set — running in local-only mode.');
+    window._fbReady = false;
+    return; // app works fine with localStorage only
+  }
+  Promise.all([
+    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
+    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js')
+  ]).then(function(mods) {
+    var app = mods[0].initializeApp(cfg);
+    var db  = mods[1].getDatabase(app);
+    var r   = mods[1].ref;
+    var FB  = 'society406/';
+    window._FB       = FB;
+    window._fbSet    = function(path, data) {
+      return mods[1].set(r(db, path), data);
+    };
+    window._fbGet    = function(path) {
+      return mods[1].get(r(db, path)).then(function(s){ return s.exists() ? s.val() : null; });
+    };
+    window._fbListen = function(path, cb) {
+      mods[1].onValue(r(db, path), function(s){ cb(s.exists() ? s.val() : null); });
+    };
+    window._fbReady = true;
+    // Notify the app that Firebase is ready — triggers _loadFirebase()
+    document.dispatchEvent(new Event('firebase-ready'));
+    console.info('Society 406: Firebase connected ✅');
+  }).catch(function(err) {
+    console.warn('Society 406: Firebase failed to load — local-only mode.', err);
+    window._fbReady = false;
+  });
+});
 </script>
 <style>
 :root{
@@ -953,20 +973,23 @@ function getStatus(fid, ym){
 // Writes to BOTH localStorage (instant) AND Firebase (shared).
 // PIN is intentionally kept in localStorage only for security.
 function saveSt(){
-  // 1. localStorage — always, instant
+  // 1. localStorage — always instant, works offline
   try{
     localStorage.setItem(SK.cfg,  JSON.stringify(cfg));
     localStorage.setItem(SK.data, JSON.stringify(allData));
     localStorage.setItem(SK.pin,  adminPin);
   }catch(e){ console.warn('localStorage save failed',e); }
 
-  // 2. Firebase — async, non-blocking
+  // 2. Firebase — syncs to ALL devices in real-time
   if(window._fbReady){
     const FB = window._FB;
     window._fbSet(FB+'cfg',  JSON.parse(JSON.stringify(cfg)))
       .catch(e=>console.warn('Firebase cfg save:',e));
     window._fbSet(FB+'data', JSON.parse(JSON.stringify(allData)))
       .catch(e=>console.warn('Firebase data save:',e));
+    // PIN must also go to Firebase so it syncs across devices
+    window._fbSet(FB+'pin',  adminPin)
+      .catch(e=>console.warn('Firebase pin save:',e));
   }
 
   showSaveInd();
@@ -976,42 +999,65 @@ function saveSt(){
 // On startup: loads localStorage immediately (fast first paint),
 // then loads Firebase (authoritative) and refreshes the UI.
 function loadSt(){
-  // Fast path — localStorage
+  // Step 1: Load from localStorage immediately — app is usable right away
   try{
     const c=localStorage.getItem(SK.cfg);  if(c) cfg={...DEFAULT_CFG,...JSON.parse(c)};
     const d=localStorage.getItem(SK.data); if(d) allData=JSON.parse(d);
     const p=localStorage.getItem(SK.pin);  if(p) adminPin=p;
   }catch(e){ console.warn('localStorage load failed',e); }
 
-  // Authoritative path — Firebase
-  // If Firebase is already initialised, load now; otherwise wait for the event.
-  if(window._fbReady){ _loadFirebase(); }
-  else { document.addEventListener('firebase-ready', _loadFirebase, {once:true}); }
+  // Step 2: Load from Firebase (authoritative, synced across devices)
+  // Use firebase-ready event — fired after window 'load' completes Firebase init
+  document.addEventListener('firebase-ready', _loadFirebase, {once:true});
 }
 
 function _loadFirebase(){
-  if(!window._fbGet) return;
+  if(!window._fbGet || !window._fbReady) return;
   const FB = window._FB;
-  window._fbGet(FB+'cfg').then(fbCfg=>{
+
+  // Load all 3 keys in parallel for speed
+  Promise.all([
+    window._fbGet(FB+'cfg'),
+    window._fbGet(FB+'data'),
+    window._fbGet(FB+'pin')
+  ]).then(function(results){
+    const fbCfg  = results[0];
+    const fbData = results[1];
+    const fbPin  = results[2];
+
+    // Apply cfg from Firebase
     if(fbCfg){
       cfg = {...DEFAULT_CFG, ...fbCfg};
       localStorage.setItem(SK.cfg, JSON.stringify(cfg));
     }
-    return window._fbGet(FB+'data');
-  }).then(fbData=>{
+
+    // Apply data from Firebase
     if(fbData){
       allData = fbData;
       localStorage.setItem(SK.data, JSON.stringify(allData));
     }
-    // Re-run init steps so UI reflects Firebase data
+
+    // Apply PIN from Firebase — this is the key fix for cross-device PIN sync
+    if(fbPin && typeof fbPin === 'string' && fbPin.length >= 4){
+      adminPin = fbPin;
+      localStorage.setItem(SK.pin, adminPin);
+    } else if(!fbPin){
+      // First time — push local PIN to Firebase so all devices get it
+      window._fbSet(FB+'pin', adminPin).catch(function(){});
+    }
+
+    // Re-run init logic with fresh Firebase data
     cfg = {...DEFAULT_CFG, ...cfg};
     fixOldData();
     ensureMonth(TODAY_YM);
-    if(currentUser) renderAll();       // refresh if user is already logged in
+
+    // If user already logged in (fast localStorage path finished first), refresh UI
+    if(currentUser) renderAll();
+
     _updateFbBadge(true);
-    _startLiveListeners();             // begin real-time sync
-  }).catch(e=>{
-    console.warn('Firebase load failed — using local data.',e);
+    _startLiveListeners(); // begin real-time sync for future changes
+  }).catch(function(e){
+    console.warn('Firebase load failed — using local data.', e);
     _updateFbBadge(false);
   });
 }
@@ -1021,26 +1067,38 @@ function _loadFirebase(){
 // the update automatically within ~1–2 seconds.
 let _listening = false;
 function _startLiveListeners(){
-  if(_listening || !window._fbListen) return;
+  if(_listening || !window._fbListen || !window._fbReady) return;
   _listening = true;
   const FB = window._FB;
 
-  window._fbListen(FB+'cfg', fbCfg=>{
+  // Listen for settings/config changes
+  window._fbListen(FB+'cfg', function(fbCfg){
     if(!fbCfg) return;
-    if(JSON.stringify(fbCfg)===JSON.stringify(cfg)) return; // no change
+    if(JSON.stringify(fbCfg)===JSON.stringify(cfg)) return;
     cfg = {...DEFAULT_CFG, ...fbCfg};
     localStorage.setItem(SK.cfg, JSON.stringify(cfg));
     if(currentUser) renderAll();
   });
 
-  window._fbListen(FB+'data', fbData=>{
+  // Listen for contribution/expense data changes
+  window._fbListen(FB+'data', function(fbData){
     if(!fbData) return;
-    if(JSON.stringify(fbData)===JSON.stringify(allData)) return; // no change
+    if(JSON.stringify(fbData)===JSON.stringify(allData)) return;
     allData = fbData;
     localStorage.setItem(SK.data, JSON.stringify(allData));
     fixOldData();
     ensureMonth(TODAY_YM);
     if(currentUser) renderAll();
+  });
+
+  // Listen for PIN changes — when admin changes PIN, ALL devices get updated
+  window._fbListen(FB+'pin', function(fbPin){
+    if(!fbPin || typeof fbPin !== 'string') return;
+    if(fbPin === adminPin) return; // no change
+    adminPin = fbPin;
+    localStorage.setItem(SK.pin, adminPin);
+    // Note: if current user is admin and was logged in with old PIN,
+    // they stay logged in — PIN change takes effect on next login
   });
 }
 
@@ -2047,12 +2105,10 @@ function toast(msg){
 //  INIT
 // ═══════════════════════════════════════════════════════════════
 (function init(){
-  loadSt();                          // localStorage immediately; Firebase async
+  loadSt();                          // localStorage immediately; Firebase async via 'firebase-ready' event
   cfg = {...DEFAULT_CFG, ...cfg};   // merge: ensure all new fields exist
   fixOldData();                      // zero out stale baseDue for pre-contribStart months
   ensureMonth(TODAY_YM);
-  // Show "Connecting…" badge; Firebase module will update it once ready
-  document.addEventListener('firebase-ready', ()=>_updateFbBadge(true), {once:true});
 })();
 </script>
 
