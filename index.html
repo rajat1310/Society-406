@@ -6,77 +6,31 @@
 <title>Society 406 — Maintenance Manager</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<!-- Firebase for cloud sync -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
 <!-- ══════════════════════════════════════════════════════
-     FIREBASE LIVE SYNC
-     ✏️  Replace the 6 YOUR_... values with your Firebase
-         project config  (Firebase Console → Project Settings
-         → Your apps → Web app → firebaseConfig)
-         Do NOT change anything else in this block.
+     FIREBASE CONFIG — hardcoded for auto-connect
+     ✏️  Replace the 7 YOUR_... values with your project's
+         config  (Firebase Console → Project Settings →
+         Your apps → Web app → firebaseConfig)
 ════════════════════════════════════════════════════════ -->
 <script>
-(function(){
-  // ── YOUR FIREBASE CONFIG ─────────────────────────────
-  var FBCFG = {
-    apiKey: "AIzaSyDDoZiFcrBOAHrShhKzGiKyEKAXtGPCk5M",
+window.HARDCODED_FB_CFG = {
+  apiKey: "AIzaSyDDoZiFcrBOAHrShhKzGiKyEKAXtGPCk5M",
   authDomain: "society-406.firebaseapp.com",
   databaseURL: "https://society-406-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "society-406",
   storageBucket: "society-406.firebasestorage.app",
   messagingSenderId: "679666442244",
   appId: "1:679666442244:web:39cd2bef3e31273baf9551",
-  };
-  // ─────────────────────────────────────────────────────
-
-  // Don't try to connect if config is still placeholder
-  var configured = FBCFG.apiKey !== 'YOUR_API_KEY'
-                && FBCFG.databaseURL.indexOf('YOUR_PROJECT_ID') === -1;
-
-  if (!configured) {
-    console.info('Society 406: Firebase not configured — local-only mode.');
-    window._fbReady = false;
-    return;
-  }
-
-  // Load Firebase SDK asynchronously after page has loaded
-  window.addEventListener('load', function() {
-    Promise.all([
-      import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js'),
-      import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js')
-    ]).then(function(mods) {
-      var initApp  = mods[0].initializeApp;
-      var dbMod    = mods[1];
-      var app      = initApp(FBCFG);
-      var db       = dbMod.getDatabase(app);
-      var r        = dbMod.ref;
-      var ROOT     = 'society406/';
-
-      window._FB       = ROOT;
-      window._fbReady  = true;
-      window._fbSet    = function(path, data) {
-        return dbMod.set(r(db, path), data);
-      };
-      window._fbGet    = function(path) {
-        return dbMod.get(r(db, path)).then(function(s) {
-          return s.exists() ? s.val() : null;
-        });
-      };
-      window._fbListen = function(path, cb) {
-        dbMod.onValue(r(db, path), function(s) {
-          cb(s.exists() ? s.val() : null);
-        });
-      };
-
-      // Signal the app that Firebase is ready
-      document.dispatchEvent(new Event('firebase-ready'));
-      console.info('Society 406: Firebase connected ✅');
-    }).catch(function(err) {
-      console.warn('Society 406: Firebase failed — local-only mode.', err);
-      window._fbReady = false;
-    });
-  });
-})();
+};
+// Set to true once you have filled in the values above
+window.FB_AUTO_CONNECT = true;
 </script>
+<!-- ExcelJS for coloured multi-sheet reports -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
 <style>
 :root{
   --ink:#1a1a2e;--ink-lt:#4a4a6a;--ink-mu:#8888aa;
@@ -366,6 +320,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
 .save-indicator{position:fixed;top:74px;right:16px;background:var(--green);color:#fff;
   font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;
   box-shadow:var(--sh-md);z-index:300;animation:tIn .3s ease;display:flex;align-items:center;gap:6px}
+
+/* ── Sync badge ── */
+.sync-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  padding:3px 10px;border-radius:20px;letter-spacing:.04em}
+.sync-on{background:var(--green-lt);color:var(--green)}
+.sync-saving{background:var(--amber-lt);color:var(--amber)}
+.sync-error{background:var(--danger-lt);color:var(--danger)}
+.sync-off{background:var(--cream-dk);color:var(--ink-mu)}
+/* ── Vehicle card ── */
+.veh-info{margin-top:9px;padding:8px 10px;background:var(--cream-dk);border-radius:8px;
+  font-size:12px;color:var(--ink-lt);line-height:1.7}
+.veh-info .vrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.veh-chip{background:#fff;border:1px solid var(--border);border-radius:6px;
+  padding:2px 8px;font-size:11px;font-weight:600;color:var(--ink)}
+/* ── Vehicle edit modal ── */
+#vehicle-modal .modal-box{max-width:480px}
+.veh-row-edit{display:grid;grid-template-columns:110px 1fr 32px;gap:8px;align-items:center;margin-bottom:8px}
+.veh-row-edit select{padding:7px 8px;border:1px solid var(--border);border-radius:8px;
+  background:#fff;font-size:13px;color:var(--ink)}
+
 </style>
 </head>
 <body>
@@ -420,7 +394,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
       <div class="u-av" id="u-av">🏠</div>
       <div><div class="u-nm" id="u-nm">Member</div><div class="r-pill r-mem" id="u-role">MEMBER</div></div>
     </div>
-    <span id="fb-badge" title="Firebase sync status" style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;background:rgba(255,255,255,.1);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.12)">⏳ Sync…</span>
     <button class="btn-lo" onclick="doLogout()">← Logout</button>
   </div>
 </div>
@@ -664,6 +637,37 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
     </div>
 
     <div class="ss">
+      <div class="ss-title">☁️ Cloud Sync — Live Data Across All Devices</div>
+      <div class="ss-desc">
+        Connect to <strong>Firebase</strong> so every change (contributions, expenses, settings) instantly appears on all members' and admin's devices.
+        Firebase config is hardcoded in the app. Connection happens automatically on page load. Status shown in the top bar.
+      </div>
+      <div style="background:var(--cream-dk);border-radius:var(--rsm);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--ink-lt);line-height:1.8">
+        <strong>Quick Setup (5 mins):</strong><br>
+        1. Go to <strong>console.firebase.google.com</strong> → Create project (free)<br>
+        2. Click <strong>⚙ Project Settings</strong> → Add Web App → Copy the config below<br>
+        3. Go to <strong>Firestore Database</strong> → Create database → Start in <em>test mode</em><br>
+        4. Paste config here and click <strong>Connect</strong>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">API Key</label><input type="text" class="fi" id="fb-apiKey" placeholder="AIzaSy..."></div>
+        <div class="fg"><label class="fl">Project ID</label><input type="text" class="fi" id="fb-projectId" placeholder="my-project-12345"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Auth Domain</label><input type="text" class="fi" id="fb-authDomain" placeholder="project.firebaseapp.com"></div>
+        <div class="fg"><label class="fl">Storage Bucket</label><input type="text" class="fi" id="fb-storageBucket" placeholder="project.appspot.com"></div>
+      </div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Messaging Sender ID</label><input type="text" class="fi" id="fb-messagingSenderId" placeholder="123456789"></div>
+        <div class="fg"><label class="fl">App ID</label><input type="text" class="fi" id="fb-appId" placeholder="1:123:web:abc"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button class="btn btn-pri" id="cloud-connect-btn" onclick="connectCloud()" style="flex:1">☁️ Connect to Cloud</button>
+        <button class="btn btn-d" onclick="disconnectCloud()" style="width:130px">Disconnect</button>
+      </div>
+    </div>
+
+    <div class="ss">
       <div class="ss-title">🏠 Flat Names &amp; Labels</div>
       <div class="ss-desc">Edit flat names, floor labels, and block names. Changes apply instantly everywhere in the app — login menu, contributions, reports, member view.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;margin-bottom:6px;padding:0 2px">
@@ -782,545 +786,490 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
 
 <script>
 // ============================================================
-//  SOCIETY 406 MANAGER — COMPLETE JS (All fixes + Flat Names)
+//  SOCIETY 406 MANAGER v4 — Cloud + Vehicle Details + Excel
 // ============================================================
-
-// ── FLAT DEFINITIONS (defaults, overridden by cfg.flatNames) ──
-var FLAT_DEFS = [
+var FLAT_DEFS=[
   {id:'406A-GF',name:'Flat 406A',floor:'Ground Floor',block:'Block A',emoji:'🏠',color:'#2d7a4f',bg:'#e0f5ea'},
   {id:'406A-FF',name:'Flat 406A',floor:'First Floor', block:'Block A',emoji:'🏠',color:'#0d7377',bg:'#e0f4f4'},
   {id:'406A-SF',name:'Flat 406A',floor:'Second Floor',block:'Block A',emoji:'🏠',color:'#5a2d82',bg:'#f0e8fa'},
   {id:'406B-GF',name:'Flat 406B',floor:'Ground Floor',block:'Block B',emoji:'🏠',color:'#c9a84c',bg:'#fff8e8'},
   {id:'406B-FF',name:'Flat 406B',floor:'First Floor', block:'Block B',emoji:'🏠',color:'#b06000',bg:'#fff3dc'},
   {id:'406B-SF',name:'Flat 406B',floor:'Second Floor',block:'Block B',emoji:'🏠',color:'#c84b6a',bg:'#fde8ee'},
-  {id:'AHUJA',  name:'Ahuja Roof',floor:'Roof Top',  block:'Ahuja Wing',emoji:'🏠',color:'#1a1a2e',bg:'#e8e8f4'}
+  {id:'AHUJA',  name:'Ahuja Roof',floor:'Roof Top',   block:'Ahuja Wing',emoji:'🏠',color:'#1a1a2e',bg:'#e8e8f4'}
 ];
+var FLATS=FLAT_DEFS.map(function(f){return Object.assign({},f);});
 
-// FLATS is the live array — names/floors are overridden from cfg.flatNames at runtime
-var FLATS = FLAT_DEFS.map(function(f){ return Object.assign({},f); });
+var VEH_TYPES=['2-Wheeler (Bike/Scooter)','4-Wheeler (Car/SUV)','3-Wheeler (Auto)','Heavy Vehicle','Other'];
 
-function applyFlatNames() {
-  if (!cfg.flatNames) return;
-  FLATS.forEach(function(f) {
-    var saved = cfg.flatNames[f.id];
-    if (!saved) return;
-    if (saved.name)  f.name  = saved.name;
-    if (saved.floor) f.floor = saved.floor;
-    if (saved.block) f.block = saved.block;
+function applyFlatNames(){
+  if(!cfg.flatNames)return;
+  FLATS.forEach(function(f){
+    var s=cfg.flatNames[f.id];if(!s)return;
+    if(s.name)f.name=s.name;if(s.floor)f.floor=s.floor;if(s.block)f.block=s.block;
   });
 }
 
-function flatDisplayName(fid) {
-  var f = FLATS.find(function(x){ return x.id === fid; });
-  return f ? f.name + ' · ' + f.floor : fid;
-}
+var CAT_ICO={'💡 Utilities':'💡','🔒 Security':'🔒','🔧 Maintenance':'🔧','🧹 Cleaning':'🧹','🏗 Repairs':'🏗','🌿 Gardening':'🌿','📦 Other':'📦'};
+var CAT_BG ={'💡 Utilities':'#fff3dc','🔒 Security':'#fde8ee','🔧 Maintenance':'#e0f4f4','🧹 Cleaning':'#e0f5ea','🏗 Repairs':'#fde8e8','🌿 Gardening':'#e8f8e8','📦 Other':'#f0e8fa'};
+var MONTHS =['January','February','March','April','May','June','July','August','September','October','November','December'];
+var SMON   =['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var SK={cfg:'soc406_cfg4',data:'soc406_data4',pin:'soc406_pin4'};
+var FB_KEY ='soc406_firebase';
+var NAV_START='2025-10';
 
-var CAT_ICO = {'💡 Utilities':'💡','🔒 Security':'🔒','🔧 Maintenance':'🔧','🧹 Cleaning':'🧹','🏗 Repairs':'🏗','🌿 Gardening':'🌿','📦 Other':'📦'};
-var CAT_BG  = {'💡 Utilities':'#fff3dc','🔒 Security':'#fde8ee','🔧 Maintenance':'#e0f4f4','🧹 Cleaning':'#e0f5ea','🏗 Repairs':'#fde8e8','🌿 Gardening':'#e8f8e8','📦 Other':'#f0e8fa'};
-var MONTHS  = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-var SMON    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-var SK = {cfg:'soc406_cfg3', data:'soc406_data3', pin:'soc406_pin3'};
-var NAV_START = '2025-10';
-
-var DEFAULT_CFG = {
-  baseAmount:500, startDay:1, warnDay:7, penaltyDay:10, updateDay:1,
-  penaltyAmt:100, compoundDays:1,
-  upiId:'', acName:'', socName:'Society 406', qrData:null,
-  cycleStartMonth:6, cycleStartYear:2026,
-  penaltyStartMonth:6, penaltyStartYear:2026,
-  flatNames:{}
+var DEFAULT_CFG={
+  baseAmount:500,startDay:1,warnDay:7,penaltyDay:10,updateDay:1,
+  penaltyAmt:100,compoundDays:1,
+  upiId:'',acName:'',socName:'Society 406',qrData:null,
+  cycleStartMonth:6,cycleStartYear:2026,
+  penaltyStartMonth:6,penaltyStartYear:2026,
+  flatNames:{},
+  flatDetails:{}   // {fid:{ownerName,contact,vehicles:[{type,number}]}}
 };
 
-var cfg = Object.assign({}, DEFAULT_CFG);
-var adminPin = '1234';
-var currentUser = null, isAdmin = false;
-var TODAY = new Date();
-var TODAY_YM = fmtYM(TODAY);
-var viewMonth = TODAY_YM;
-var allData = {};
+var cfg=Object.assign({},DEFAULT_CFG);
+var adminPin='1234';
+var currentUser=null,isAdmin=false;
+var TODAY=new Date();
+var TODAY_YM=fmtYM(TODAY);
+var viewMonth=TODAY_YM;
+var allData={};
+
+// Cloud state
+var db=null,cloudEnabled=false,cloudUnsub=null,cloudSaving=false,ignoreNextSnap=false;
 
 // ── HELPERS ──
-function fmtYM(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
-function ymToDate(s){ var p=s.split('-'); return new Date(+p[0],+p[1]-1,1); }
-function monthLabel(s){ var d=ymToDate(s); return MONTHS[d.getMonth()]+' '+d.getFullYear(); }
-function ord(n){ var v=n%100; return n+(['th','st','nd','rd'][(v-20)%10]||['th','st','nd','rd'][v]||'th'); }
-function dom(){ return TODAY.getDate(); }
-function addM(ym,n){ var d=ymToDate(ym); d.setMonth(d.getMonth()+n); return fmtYM(d); }
-function prevYM(ym){ return addM(ym,-1); }
-function nextYM(ym){ return addM(ym,+1); }
-function contribStartYM(){ return cfg.cycleStartYear+'-'+String(cfg.cycleStartMonth).padStart(2,'0'); }
-function penaltyStartYM(){ return cfg.penaltyStartYear+'-'+String(cfg.penaltyStartMonth).padStart(2,'0'); }
-function isManualMonth(ym){ return ym < contribStartYM(); }
-function autoBaseDue(ym){ return isManualMonth(ym) ? 0 : cfg.baseAmount; }
-function penaltyActive(ym){ return ym >= penaltyStartYM(); }
-function displayMonth(){ return viewMonth > TODAY_YM ? TODAY_YM : viewMonth; }
+function fmtYM(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');}
+function ymToDate(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,1);}
+function monthLabel(s){var d=ymToDate(s);return MONTHS[d.getMonth()]+' '+d.getFullYear();}
+function ord(n){var v=n%100;return n+(['th','st','nd','rd'][(v-20)%10]||['th','st','nd','rd'][v]||'th');}
+function dom(){return TODAY.getDate();}
+function addM(ym,n){var d=ymToDate(ym);d.setMonth(d.getMonth()+n);return fmtYM(d);}
+function prevYM(ym){return addM(ym,-1);}
+function nextYM(ym){return addM(ym,+1);}
+function contribStartYM(){return cfg.cycleStartYear+'-'+String(cfg.cycleStartMonth).padStart(2,'0');}
+function penaltyStartYM(){return cfg.penaltyStartYear+'-'+String(cfg.penaltyStartMonth).padStart(2,'0');}
+function isManualMonth(ym){return ym<contribStartYM();}
+function autoBaseDue(ym){return isManualMonth(ym)?0:cfg.baseAmount;}
+function penaltyActive(ym){return ym>=penaltyStartYM();}
+function displayMonth(){return viewMonth>TODAY_YM?TODAY_YM:viewMonth;}
 
-// ── PENALTY (frozen when fully paid) ──
-function getEffectivePenalty(fid, ym) {
-  if (!penaltyActive(ym)) return 0;
-  if (ym > TODAY_YM) return 0;
-  var c = allData[ym] && allData[ym].contributions[fid];
-  var stored = c ? (c.penalty||0) : 0;
-  if (ym === TODAY_YM) {
-    var d = dom();
-    if (d <= cfg.penaltyDay) return stored;
-    var rawDue = (c ? (c.baseDue||0) : 0) + stored + (c ? (c.arrears||0) : 0);
-    if (c && rawDue > 0 && c.paid >= rawDue) return stored; // frozen — paid in full
-    var live = cfg.penaltyAmt * Math.ceil((d - cfg.penaltyDay) / cfg.compoundDays);
-    return Math.max(stored, live);
+// ── PENALTY ──
+function getEffectivePenalty(fid,ym){
+  if(!penaltyActive(ym))return 0;if(ym>TODAY_YM)return 0;
+  var c=allData[ym]&&allData[ym].contributions[fid];
+  var stored=c?(c.penalty||0):0;
+  if(ym===TODAY_YM){
+    var d=dom();if(d<=cfg.penaltyDay)return stored;
+    var rawDue=(c?(c.baseDue||0):0)+stored+(c?(c.arrears||0):0);
+    if(c&&rawDue>0&&c.paid>=rawDue)return stored;
+    var live=cfg.penaltyAmt*Math.ceil((d-cfg.penaltyDay)/cfg.compoundDays);
+    return Math.max(stored,live);
   }
-  if (stored > 0) return stored;
-  if (isManualMonth(ym)) return 0;
-  var mDate = ymToDate(ym);
-  var lastDay = new Date(mDate.getFullYear(), mDate.getMonth()+1, 0).getDate();
-  if (lastDay <= cfg.penaltyDay) return 0;
-  return cfg.penaltyAmt * Math.ceil((lastDay - cfg.penaltyDay) / cfg.compoundDays);
+  if(stored>0)return stored;if(isManualMonth(ym))return 0;
+  var mDate=ymToDate(ym);
+  var lastDay=new Date(mDate.getFullYear(),mDate.getMonth()+1,0).getDate();
+  if(lastDay<=cfg.penaltyDay)return 0;
+  return cfg.penaltyAmt*Math.ceil((lastDay-cfg.penaltyDay)/cfg.compoundDays);
 }
 
 // ── DATA ──
-function rawBal(fid, ym) {
-  if (!allData[ym]) return 0;
-  var c = allData[ym].contributions[fid];
-  if (!c) return 0;
-  return Math.max(0, c.baseDue + getEffectivePenalty(fid,ym) + c.arrears - c.paid);
+function rawBal(fid,ym){
+  if(!allData[ym])return 0;var c=allData[ym].contributions[fid];if(!c)return 0;
+  return Math.max(0,c.baseDue+getEffectivePenalty(fid,ym)+c.arrears-c.paid);
 }
-function ensureMonth(ym) {
-  if (!allData[ym]) allData[ym] = {contributions:{}, expenses:[]};
-  if (!allData[ym].expenses) allData[ym].expenses = [];
-  var prev = prevYM(ym);
-  FLATS.forEach(function(f) {
-    if (!allData[ym].contributions[f.id]) {
-      var arrears = isManualMonth(ym) ? 0 : rawBal(f.id, prev);
-      allData[ym].contributions[f.id] = {baseDue:autoBaseDue(ym), paid:0, penalty:0, arrears:arrears, payments:[]};
+function ensureMonth(ym){
+  if(!allData[ym])allData[ym]={contributions:{},expenses:[]};
+  if(!allData[ym].expenses)allData[ym].expenses=[];
+  var prev=prevYM(ym);
+  FLATS.forEach(function(f){
+    if(!allData[ym].contributions[f.id]){
+      var ar=isManualMonth(ym)?0:rawBal(f.id,prev);
+      allData[ym].contributions[f.id]={baseDue:autoBaseDue(ym),paid:0,penalty:0,arrears:ar,payments:[]};
     }
-    if (!allData[ym].contributions[f.id].payments) allData[ym].contributions[f.id].payments = [];
+    if(!allData[ym].contributions[f.id].payments)allData[ym].contributions[f.id].payments=[];
   });
 }
-function getMD(ym){ ensureMonth(ym); return allData[ym]; }
-function flatDue(fid,ym){ var c=getMD(ym).contributions[fid]; return c.baseDue+getEffectivePenalty(fid,ym)+c.arrears; }
-function flatBal(fid,ym){ return Math.max(0, flatDue(fid,ym) - getMD(ym).contributions[fid].paid); }
-function cumBaseDue(fid,toYM){ var t=0,cur=NAV_START; while(cur<=toYM){ if(allData[cur]&&allData[cur].contributions[fid]) t+=allData[cur].contributions[fid].baseDue||0; cur=nextYM(cur); } return t; }
-function cumPenalty(fid,toYM){ var t=0,cur=NAV_START; while(cur<=toYM){ if(allData[cur]&&allData[cur].contributions[fid]) t+=getEffectivePenalty(fid,cur); cur=nextYM(cur); } return t; }
-function cumPaid(fid,toYM){ var t=0,cur=NAV_START; while(cur<=toYM){ if(allData[cur]&&allData[cur].contributions[fid]) t+=allData[cur].contributions[fid].paid||0; cur=nextYM(cur); } return t; }
-function cumDue(fid,toYM){ return cumBaseDue(fid,toYM)+cumPenalty(fid,toYM); }
-function cumBal(fid,toYM){ return Math.max(0, cumDue(fid,toYM) - cumPaid(fid,toYM)); }
-function totCollected(toYM){ var t=0,cur=NAV_START; while(cur<=toYM){ if(allData[cur]) FLATS.forEach(function(f){ t+=allData[cur].contributions[f.id] ? allData[cur].contributions[f.id].paid||0 : 0; }); cur=nextYM(cur); } return t; }
-function totSpent(toYM){ var t=0; Object.values(allData).forEach(function(md){ (md.expenses||[]).forEach(function(e){ if(e.date&&e.date.substring(0,7)<=toYM) t+=e.amount; }); }); return t; }
-function expsForMonth(ym){ var seen=new Set(),res=[]; Object.values(allData).forEach(function(md){ (md.expenses||[]).forEach(function(e){ if(e.date&&e.date.substring(0,7)===ym&&!seen.has(e.id)){ seen.add(e.id); res.push(e); } }); }); return res.sort(function(a,b){ return new Date(b.date)-new Date(a.date); }); }
-function totPending(toYM){ return FLATS.reduce(function(s,f){ return s+cumBal(f.id,toYM); },0); }
-function paidCnt(toYM){ return FLATS.filter(function(f){ return cumBal(f.id,toYM)===0; }).length; }
+function getMD(ym){ensureMonth(ym);return allData[ym];}
+function flatDue(fid,ym){var c=getMD(ym).contributions[fid];return c.baseDue+getEffectivePenalty(fid,ym)+c.arrears;}
+function flatBal(fid,ym){return Math.max(0,flatDue(fid,ym)-getMD(ym).contributions[fid].paid);}
+function cumBaseDue(fid,toYM){var t=0,cur=NAV_START;while(cur<=toYM){if(allData[cur]&&allData[cur].contributions[fid])t+=allData[cur].contributions[fid].baseDue||0;cur=nextYM(cur);}return t;}
+function cumPenalty(fid,toYM){var t=0,cur=NAV_START;while(cur<=toYM){if(allData[cur]&&allData[cur].contributions[fid])t+=getEffectivePenalty(fid,cur);cur=nextYM(cur);}return t;}
+function cumPaid(fid,toYM){var t=0,cur=NAV_START;while(cur<=toYM){if(allData[cur]&&allData[cur].contributions[fid])t+=allData[cur].contributions[fid].paid||0;cur=nextYM(cur);}return t;}
+function cumDue(fid,toYM){return cumBaseDue(fid,toYM)+cumPenalty(fid,toYM);}
+function cumBal(fid,toYM){return Math.max(0,cumDue(fid,toYM)-cumPaid(fid,toYM));}
+function totCollected(toYM){var t=0,cur=NAV_START;while(cur<=toYM){if(allData[cur])FLATS.forEach(function(f){t+=allData[cur].contributions[f.id]?allData[cur].contributions[f.id].paid||0:0;});cur=nextYM(cur);}return t;}
+function totSpent(toYM){var t=0;Object.values(allData).forEach(function(md){(md.expenses||[]).forEach(function(e){if(e.date&&e.date.substring(0,7)<=toYM)t+=e.amount;});});return t;}
+function expsForMonth(ym){var seen=new Set(),res=[];Object.values(allData).forEach(function(md){(md.expenses||[]).forEach(function(e){if(e.date&&e.date.substring(0,7)===ym&&!seen.has(e.id)){seen.add(e.id);res.push(e);}});});return res.sort(function(a,b){return new Date(b.date)-new Date(a.date);});}
+function totPending(toYM){return FLATS.reduce(function(s,f){return s+cumBal(f.id,toYM);},0);}
+function paidCnt(toYM){return FLATS.filter(function(f){return cumBal(f.id,toYM)===0;}).length;}
 function getStatus(fid,ym){
-  var c=getMD(ym).contributions[fid];
-  if(c.statusOverride) return c.statusOverride;
-  if(flatBal(fid,ym)===0) return 'paid';
-  var live=ym===TODAY_YM, d=live?dom():0;
-  if(penaltyActive(ym)&&d>cfg.penaltyDay) return 'danger';
-  if(d>cfg.warnDay) return 'warn';
-  return 'ok';
+  var c=getMD(ym).contributions[fid];if(c.statusOverride)return c.statusOverride;
+  if(flatBal(fid,ym)===0)return 'paid';
+  var live=ym===TODAY_YM,d=live?dom():0;
+  if(penaltyActive(ym)&&d>cfg.penaltyDay)return 'danger';
+  if(d>cfg.warnDay)return 'warn';return 'ok';
+}
+function syncPayments(fid,ym,newPaid){
+  var c=getMD(ym).contributions[fid];if(newPaid<=0){c.payments=[];return;}
+  var ps=(c.payments||[]).reduce(function(s,p){return s+(p.amt||0);},0);
+  if(Math.abs(ps-newPaid)<0.01)return;
+  c.payments=[{amt:newPaid,date:TODAY.toISOString().split('T')[0],note:'Admin adjusted'}];
 }
 
-// syncPayments — keeps payments[] truthful with mc.paid
-function syncPayments(fid, ym, newPaid) {
-  var c = getMD(ym).contributions[fid];
-  if (newPaid <= 0) { c.payments = []; return; }
-  var pSum = (c.payments||[]).reduce(function(s,p){ return s+(p.amt||0); }, 0);
-  if (Math.abs(pSum - newPaid) < 0.01) return;
-  c.payments = [{amt:newPaid, date:TODAY.toISOString().split('T')[0], note:'Admin adjusted'}];
+// ── VEHICLE / CONTACT HELPERS ──
+function getDetails(fid){
+  if(!cfg.flatDetails)cfg.flatDetails={};
+  return cfg.flatDetails[fid]||{ownerName:'',contact:'',vehicles:[]};
 }
-
-// ── PERSISTENCE ──
-function saveSt() {
-  // 1. localStorage — always instant, works offline
-  try {
-    localStorage.setItem(SK.cfg,  JSON.stringify(cfg));
-    localStorage.setItem(SK.data, JSON.stringify(allData));
-    localStorage.setItem(SK.pin,  adminPin);
-  } catch(e) { console.warn('localStorage save failed',e); }
-
-  // 2. Firebase — syncs to ALL devices in real-time
-  if (window._fbReady) {
-    var FB = window._FB;
-    // cfg includes all settings: baseAmount, flatNames, QR code, cycle dates, UPI info
-    window._fbSet(FB+'cfg',  JSON.parse(JSON.stringify(cfg)))
-      .catch(function(e){ console.warn('Firebase cfg save:', e); });
-    // allData includes all contributions, payments, expenses
-    window._fbSet(FB+'data', JSON.parse(JSON.stringify(allData)))
-      .catch(function(e){ console.warn('Firebase data save:', e); });
-    // PIN synced so admin password change works on all devices
-    window._fbSet(FB+'pin',  adminPin)
-      .catch(function(e){ console.warn('Firebase pin save:', e); });
+function vehIcon(type){
+  var m={'2-Wheeler (Bike/Scooter)':'&#127949;','4-Wheeler (Car/SUV)':'&#128663;','3-Wheeler (Auto)':'&#128506;','Heavy Vehicle':'&#128667;','Other':'&#128665;'};
+  return m[type]||'🚙';
+}
+function renderVehicleInfo(fid){
+  var det=getDetails(fid);
+  var hasData=det.ownerName||det.contact||(det.vehicles&&det.vehicles.length>0);
+  if(!hasData){
+    var isOwn=!isAdmin&&fid===currentUser;
+    return isOwn
+      ? '<div class="veh-info" style="color:var(--teal);border:1px dashed var(--teal);background:var(--teal-lt)">'
+        +'&#128221; Tap <strong>My Details</strong> button above to add your contact &amp; vehicle info</div>'
+      : '';
   }
-
-  showSaveInd();
-}
-function loadSt() {
-  // Step 1: localStorage — instant, app usable immediately even before Firebase
-  try {
-    var c=localStorage.getItem(SK.cfg);  if(c) cfg=Object.assign({},DEFAULT_CFG,JSON.parse(c));
-    var d=localStorage.getItem(SK.data); if(d) allData=JSON.parse(d);
-    var p=localStorage.getItem(SK.pin);  if(p) adminPin=p;
-  } catch(e) { console.warn('localStorage load failed',e); }
-
-  // Step 2: Firebase — loads authoritative data, then refreshes UI
-  // Waits for 'firebase-ready' event fired by the Firebase block above
-  document.addEventListener('firebase-ready', _loadFirebase, {once:true});
+  var parts=[];
+  if(det.ownerName)parts.push('&#128100; '+det.ownerName);
+  if(det.contact)parts.push('&#128222; '+det.contact);
+  var vChips=(det.vehicles||[]).map(function(v){
+    return '<span class="veh-chip">'+vehIcon(v.type)+' '+v.number+' <em style="font-weight:400;color:var(--ink-mu)">('+v.type+')</em></span>';
+  }).join(' ');
+  return '<div class="veh-info">'
+    +(parts.length?'<div class="vrow">'+parts.map(function(p){return '<span>'+p+'</span>';}).join(' &nbsp;|&nbsp; ')+ '</div>':'')
+    +(vChips?'<div class="vrow" style="margin-top:5px">'+vChips+'</div>':'')
+    +'</div>';
 }
 
-function _loadFirebase() {
-  if (!window._fbReady || !window._fbGet) return;
-  var FB = window._FB;
-
-  // Load cfg, data and PIN in parallel for speed
-  Promise.all([
-    window._fbGet(FB+'cfg'),
-    window._fbGet(FB+'data'),
-    window._fbGet(FB+'pin')
-  ]).then(function(results) {
-    var fbCfg  = results[0];
-    var fbData = results[1];
-    var fbPin  = results[2];
-
-    // Apply Firebase cfg (settings, flat names, QR, cycle dates, UPI)
-    if (fbCfg) {
-      cfg = Object.assign({}, DEFAULT_CFG, fbCfg);
-      localStorage.setItem(SK.cfg, JSON.stringify(cfg));
-    }
-
-    // Apply Firebase data (contributions, payments, expenses)
-    if (fbData) {
-      allData = fbData;
-      localStorage.setItem(SK.data, JSON.stringify(allData));
-    }
-
-    // Apply Firebase PIN — this is how admin password change syncs to all devices
-    if (fbPin && typeof fbPin === 'string' && fbPin.length >= 4) {
-      adminPin = fbPin;
-      localStorage.setItem(SK.pin, adminPin);
-    } else if (!fbPin) {
-      // First time ever — push current PIN to Firebase
-      window._fbSet(FB+'pin', adminPin).catch(function(){});
-    }
-
-    // Re-run init logic with fresh Firebase data
-    if (!cfg.flatNames) cfg.flatNames = {};
-    applyFlatNames();
-    refreshLoginDropdown();
-    fixOldData();
-    ensureMonth(TODAY_YM);
-
-    // If user is already logged in (fast localStorage path), refresh the UI
-    if (currentUser) renderAll();
-
-    // Update Firebase badge to green
-    _fbBadge(true);
-
-    // Start real-time listeners — auto-refresh when admin changes anything
-    _startListeners();
-
-  }).catch(function(err) {
-    console.warn('Firebase load failed — using local data.', err);
-    _fbBadge(false);
-  });
+// current flat being edited in vehicle modal
+var editVehFid=null;
+function openVehicleModal(fid){
+  editVehFid=fid;
+  var f=FLATS.find(function(x){return x.id===fid;});
+  var det=getDetails(fid);
+  var isOwnFlat=(!isAdmin&&fid===currentUser); document.getElementById('veh-modal-title').textContent=isOwnFlat?'&#128221; My Contact & Vehicle Details':'&#9999; Edit Details — '+f.name+' · '+f.floor;
+  document.getElementById('veh-modal-sub').textContent=f.block;
+  document.getElementById('veh-owner').value=det.ownerName||'';
+  document.getElementById('veh-contact').value=det.contact||'';
+  renderVehEditList(det.vehicles||[]);
+  document.getElementById('vehicle-modal').style.display='flex';
 }
-
-var _listening = false;
-function _startListeners() {
-  if (_listening || !window._fbListen || !window._fbReady) return;
-  _listening = true;
-  var FB = window._FB;
-
-  // Listen for settings changes (flat names, QR, amounts, cycle dates, UPI)
-  window._fbListen(FB+'cfg', function(fbCfg) {
-    if (!fbCfg || JSON.stringify(fbCfg) === JSON.stringify(cfg)) return;
-    cfg = Object.assign({}, DEFAULT_CFG, fbCfg);
-    localStorage.setItem(SK.cfg, JSON.stringify(cfg));
-    if (!cfg.flatNames) cfg.flatNames = {};
-    applyFlatNames();
-    refreshLoginDropdown();
-    if (currentUser) renderAll();
+function closeVehicleModal(){document.getElementById('vehicle-modal').style.display='none';editVehFid=null;}
+function renderVehEditList(vehicles){
+  var list=document.getElementById('veh-list-edit');
+  var html='';
+  (vehicles||[]).forEach(function(v,i){
+    var opts=VEH_TYPES.map(function(t){return '<option value="'+t+'"'+(t===v.type?' selected':'')+'>'+vehIcon(t)+' '+t+'</option>';}).join('');
+    html+='<div class="veh-row-edit" id="vr-'+i+'">'
+      +'<select id="vt-'+i+'">'+opts+'</select>'
+      +'<input type="text" class="fi" id="vn-'+i+'" value="'+v.number.replace(/"/g,'&quot;')+'" placeholder="Vehicle Number" style="font-size:13px;font-weight:600;text-transform:uppercase">'
+      +'<button class="btn btn-d btn-xs" onclick="removeVehRow('+i+')">✕</button>'
+      +'</div>';
   });
-
-  // Listen for contribution/expense/payment data changes
-  window._fbListen(FB+'data', function(fbData) {
-    if (!fbData || JSON.stringify(fbData) === JSON.stringify(allData)) return;
-    allData = fbData;
-    localStorage.setItem(SK.data, JSON.stringify(allData));
-    fixOldData();
-    ensureMonth(TODAY_YM);
-    if (currentUser) renderAll();
-  });
-
-  // Listen for PIN changes — admin password change syncs to all devices instantly
-  window._fbListen(FB+'pin', function(fbPin) {
-    if (!fbPin || typeof fbPin !== 'string' || fbPin === adminPin) return;
-    adminPin = fbPin;
-    localStorage.setItem(SK.pin, adminPin);
-  });
+  list.innerHTML=html;
+  list.dataset.count=String((vehicles||[]).length);
 }
-
-function _fbBadge(online) {
-  var el = document.getElementById('fb-badge');
-  if (!el) return;
-  if (online) {
-    el.textContent = '🔥 Live';
-    el.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;background:rgba(45,122,79,.3);color:rgba(74,221,128,.9);border:1px solid rgba(74,221,128,.25)';
-  } else {
-    el.textContent = '💾 Local';
-    el.style.cssText = 'font-size:11px;padding:3px 10px;border-radius:20px;font-weight:600;background:rgba(176,96,0,.2);color:rgba(255,193,70,.9);border:1px solid rgba(176,96,0,.25)';
+function addVehicleRow(){
+  var list=document.getElementById('veh-list-edit');
+  var i=parseInt(list.dataset.count||'0');
+  var opts=VEH_TYPES.map(function(t){return '<option value="'+t+'">'+vehIcon(t)+' '+t+'</option>';}).join('');
+  var row=document.createElement('div');row.className='veh-row-edit';row.id='vr-'+i;
+  row.innerHTML='<select id="vt-'+i+'">'+opts+'</select>'
+    +'<input type="text" class="fi" id="vn-'+i+'" placeholder="Vehicle Number" style="font-size:13px;font-weight:600;text-transform:uppercase">'
+    +'<button class="btn btn-d btn-xs" onclick="removeVehRow('+i+')">✕</button>';
+  list.appendChild(row);list.dataset.count=String(i+1);
+}
+function removeVehRow(i){var r=document.getElementById('vr-'+i);if(r)r.remove();}
+function saveVehicleDetails(){
+  if(!editVehFid)return;
+  if(!cfg.flatDetails)cfg.flatDetails={};
+  var list=document.getElementById('veh-list-edit');
+  var count=parseInt(list.dataset.count||'0');
+  var vehicles=[];
+  for(var i=0;i<count;i++){
+    var te=document.getElementById('vt-'+i),ne=document.getElementById('vn-'+i);
+    if(!te||!ne)continue;
+    var num=ne.value.trim().toUpperCase();if(!num)continue;
+    vehicles.push({type:te.value,number:num});
   }
+  cfg.flatDetails[editVehFid]={
+    ownerName:document.getElementById('veh-owner').value.trim(),
+    contact:document.getElementById('veh-contact').value.trim(),
+    vehicles:vehicles
+  };
+  closeVehicleModal();saveSt();renderFlatCards();
+  toast('\u2705 Details saved for '+flatDisplayName(editVehFid));
 }
-function showSaveInd() {
-  var o=document.getElementById('save-ind'); if(o) o.remove();
-  var el=document.createElement('div'); el.id='save-ind'; el.className='save-indicator';
-  el.textContent = window._fbReady ? '🔥 Saved & synced to all members' : '✅ Saved locally';
-  document.body.appendChild(el);
-  setTimeout(function(){ el.style.opacity='0'; el.style.transition='opacity .4s'; setTimeout(function(){ el.remove(); },450); },2200);
-}
+function flatDisplayName(fid){var f=FLATS.find(function(x){return x.id===fid;});return f?f.name+' \u00b7 '+f.floor:fid;}
 
-function fixOldData() {
-  var cs = contribStartYM();
-  Object.keys(allData).forEach(function(ym) {
-    FLATS.forEach(function(f) {
-      var c = allData[ym]&&allData[ym].contributions&&allData[ym].contributions[f.id];
-      if (!c) return;
-      if (ym < cs) { if((c.baseDue||0)===cfg.baseAmount) c.baseDue=0; c.penalty=0; c.arrears=0; }
-      var actualPaid = c.paid||0;
-      var pSum = (c.payments||[]).reduce(function(s,p){ return s+(p.amt||0); },0);
-      if (actualPaid===0 && (c.payments||[]).length>0) { c.payments=[]; }
-      else if (actualPaid>0 && Math.abs(pSum-actualPaid)>0.01 && (c.payments||[]).length>0) {
-        var ld = c.payments[c.payments.length-1]&&c.payments[c.payments.length-1].date;
-        c.payments = [{amt:actualPaid, date:ld||ym+'-01', note:'Reconciled'}];
-      }
+// ── CLOUD ──
+function setSyncBadge(state){
+  var el=document.getElementById('sync-badge');if(!el)return;
+  var map={on:'\u2601\ufe0f Live Sync',saving:'\u23f3 Saving\u2026',error:'\u274c Sync Error',off:'\ud83d\udcbe Local Only'};
+  var cls={on:'sync-on',saving:'sync-saving',error:'sync-error',off:'sync-off'};
+  el.textContent=map[state]||state;el.className='sync-badge '+(cls[state]||'sync-off');
+}
+function getSavedFbCfg(){try{var s=localStorage.getItem(FB_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
+function saveFbCfgLocal(fc){localStorage.setItem(FB_KEY,JSON.stringify(fc));}
+
+function initCloud(fbCfg){
+  if(!fbCfg||!fbCfg.apiKey||!fbCfg.projectId){setSyncBadge('off');return false;}
+  try{
+    var app=(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length>0)?firebase.app():firebase.initializeApp(fbCfg);
+    db=firebase.firestore(app);cloudEnabled=true;setSyncBadge('on');startCloudListener();return true;
+  }catch(e){console.error('Firebase init error:',e);cloudEnabled=false;db=null;setSyncBadge('error');toast('\u26a0 Cloud connect failed: '+e.message);return false;}
+}
+function startCloudListener(){
+  if(!db)return;if(cloudUnsub)cloudUnsub();
+  var ref=db.collection('society406').doc('appdata');
+  cloudUnsub=ref.onSnapshot(function(snap){
+    if(ignoreNextSnap){ignoreNextSnap=false;return;}
+    if(!snap.exists){setSyncBadge('on');return;}
+    var d=snap.data();
+    if(d.cfg)cfg=Object.assign({},DEFAULT_CFG,d.cfg);
+    if(d.allData)allData=d.allData;if(d.adminPin)adminPin=d.adminPin;
+    if(!cfg.flatNames)cfg.flatNames={};if(!cfg.flatDetails)cfg.flatDetails={};
+    applyFlatNames();fixOldData();ensureMonth(TODAY_YM);
+    try{localStorage.setItem(SK.cfg,JSON.stringify(cfg));localStorage.setItem(SK.data,JSON.stringify(allData));localStorage.setItem(SK.pin,adminPin);}catch(e){}
+    setSyncBadge('on');
+    if(currentUser){try{renderAll();}catch(e){console.error(e);}}
+  },function(err){console.error('Cloud listener:',err);setSyncBadge('error');});
+}
+function saveToCloud(){
+  if(!db||cloudSaving)return;cloudSaving=true;setSyncBadge('saving');ignoreNextSnap=true;
+  db.collection('society406').doc('appdata').set({cfg:cfg,allData:allData,adminPin:adminPin,updatedAt:firebase.firestore.FieldValue.serverTimestamp()})
+    .then(function(){setSyncBadge('on');cloudSaving=false;showSaveInd();})
+    .catch(function(e){console.error('Cloud save failed:',e);setSyncBadge('error');cloudSaving=false;ignoreNextSnap=false;saveLocal();toast('\u26a0 Cloud save failed \u2014 saved locally.');});
+}
+function saveLocal(){try{localStorage.setItem(SK.cfg,JSON.stringify(cfg));localStorage.setItem(SK.data,JSON.stringify(allData));localStorage.setItem(SK.pin,adminPin);}catch(e){console.warn(e);}}
+function saveSt(){saveLocal();if(cloudEnabled&&db){saveToCloud();}else{showSaveInd();}}
+function loadSt(){try{var c=localStorage.getItem(SK.cfg);if(c)cfg=Object.assign({},DEFAULT_CFG,JSON.parse(c));var d=localStorage.getItem(SK.data);if(d)allData=JSON.parse(d);var p=localStorage.getItem(SK.pin);if(p)adminPin=p;}catch(e){console.warn(e);}}
+function showSaveInd(){var o=document.getElementById('save-ind');if(o)o.remove();var el=document.createElement('div');el.id='save-ind';el.className='save-indicator';el.textContent=cloudEnabled?'\u2601\ufe0f Saved to Cloud':'\u2705 Saved';document.body.appendChild(el);setTimeout(function(){el.style.opacity='0';el.style.transition='opacity .4s';setTimeout(function(){el.remove();},450);},1800);}
+
+function fixOldData(){
+  var cs=contribStartYM();
+  Object.keys(allData).forEach(function(ym){
+    FLATS.forEach(function(f){
+      var c=allData[ym]&&allData[ym].contributions&&allData[ym].contributions[f.id];if(!c)return;
+      if(ym<cs){if((c.baseDue||0)===cfg.baseAmount)c.baseDue=0;c.penalty=0;c.arrears=0;}
+      var ap=c.paid||0,ps=(c.payments||[]).reduce(function(s,p){return s+(p.amt||0);},0);
+      if(ap===0&&(c.payments||[]).length>0){c.payments=[];}
+      else if(ap>0&&Math.abs(ps-ap)>0.01&&(c.payments||[]).length>0){var ld=c.payments[c.payments.length-1]&&c.payments[c.payments.length-1].date;c.payments=[{amt:ap,date:ld||ym+'-01',note:'Reconciled'}];}
     });
   });
 }
 
 // ── MONTH PICKER ──
-function buildPicker(cid) {
-  var el=document.getElementById(cid); if(!el) return;
-  var selY=+viewMonth.split('-')[0], selM=+viewMonth.split('-')[1];
-  var live=viewMonth===TODAY_YM, fut=viewMonth>TODAY_YM;
-  var yOpts=''; for(var y=2025;y<=2070;y++) yOpts+='<option value="'+y+'"'+(y===selY?' selected':'')+'>'+y+'</option>';
-  var mOpts=''; SMON.forEach(function(m,i){ mOpts+='<option value="'+(i+1)+'"'+(i+1===selM?' selected':'')+'>'+m+'</option>'; });
-  var badge=isAdmin?(fut?'🔮 Future':live?'🟢 Live':'📂 Historic'):(live?'📅 Current':'📂 Historic');
+function buildPicker(cid){
+  var el=document.getElementById(cid);if(!el)return;
+  var selY=+viewMonth.split('-')[0],selM=+viewMonth.split('-')[1];
+  var live=viewMonth===TODAY_YM,fut=viewMonth>TODAY_YM;
+  var yOpts='';for(var y=2025;y<=2070;y++)yOpts+='<option value="'+y+'"'+(y===selY?' selected':'')+'>'+y+'</option>';
+  var mOpts='';SMON.forEach(function(m,i){mOpts+='<option value="'+(i+1)+'"'+(i+1===selM?' selected':'')+'>'+m+'</option>';});
+  var badge=isAdmin?(fut?'\ud83d\udd2e Future':live?'\ud83d\udfe2 Live':'\ud83d\udcc2 Historic'):(live?'\ud83d\udcc5 Current':'\ud83d\udcc2 Historic');
   var bCls=fut?'mpk-badge':live?'mpk-badge is-live':'mpk-badge';
-  el.innerHTML='<span class="mpk-label">📅 Period:</span>'
+  el.innerHTML='<span class="mpk-label">\ud83d\udcc5 Period:</span>'
     +'<div class="sw" style="min-width:68px"><select class="fi" id="'+cid+'-m" style="height:34px;padding:5px 24px 5px 8px;font-size:14px;font-weight:600;color:var(--ink)" onchange="onPick(\''+cid+'\')">'+mOpts+'</select></div>'
     +'<div class="sw" style="min-width:68px"><select class="fi" id="'+cid+'-y" style="height:34px;padding:5px 24px 5px 8px;font-size:14px;font-weight:600;color:var(--ink)" onchange="onPick(\''+cid+'\')">'+yOpts+'</select></div>'
-    +(live?'':'<button class="mpk-today" onclick="goToday()">↩ Today</button>')
+    +(live?'':'<button class="mpk-today" onclick="goToday()">\u21a9 Today</button>')
     +'<span class="'+bCls+'">'+badge+'</span>';
   el.classList.remove('hidden');
 }
-function onPick(cid) {
-  var m=+document.getElementById(cid+'-m').value, y=+document.getElementById(cid+'-y').value;
+function onPick(cid){
+  var m=+document.getElementById(cid+'-m').value,y=+document.getElementById(cid+'-y').value;
   var ym=y+'-'+String(m).padStart(2,'0');
-  if(ym<NAV_START){ toast('⚠ Cannot go before October 2025'); return; }
-  if(!isAdmin&&ym>TODAY_YM){ toast('⚠ Future months are admin-only'); return; }
+  if(ym<NAV_START){toast('\u26a0 Cannot go before October 2025');return;}
+  if(!isAdmin&&ym>TODAY_YM){toast('\u26a0 Future months are admin-only');return;}
   setView(ym);
 }
-function goToday(){ setView(TODAY_YM); }
-function setView(ym){ viewMonth=ym; ensureMonth(ym); renderAll(); }
-function renderPickers() {
-  var ovMpk=document.getElementById('ov-mpk'); if(ovMpk) ovMpk.innerHTML='';
-  buildPicker('ct-mpk'); buildPicker('exp-mpk');
+function goToday(){setView(TODAY_YM);}
+function setView(ym){viewMonth=ym;ensureMonth(ym);renderAll();}
+function renderPickers(){
+  var ovMpk=document.getElementById('ov-mpk');if(ovMpk)ovMpk.innerHTML='';
+  buildPicker('ct-mpk');buildPicker('exp-mpk');
   document.getElementById('ov-month-lbl').textContent=monthLabel(TODAY_YM)+'  (Current Month)';
   var isFut=viewMonth>TODAY_YM;
   var vmLbl=isFut?monthLabel(viewMonth)+' \u2192 data from '+monthLabel(TODAY_YM):monthLabel(viewMonth);
   document.getElementById('ct-month-lbl').textContent=vmLbl;
-  var eml=document.getElementById('exp-month-lbl'); if(eml) eml.textContent='\u2014 '+vmLbl;
-  var dlb=document.getElementById('dl-month-lbl'); if(dlb) dlb.textContent='Full Report (Oct 2025 \u2013 '+monthLabel(TODAY_YM)+')';
+  var eml=document.getElementById('exp-month-lbl');if(eml)eml.textContent='\u2014 '+vmLbl;
+  var dlb=document.getElementById('dl-month-lbl');if(dlb)dlb.textContent='Full Report (Oct 2025 \u2013 '+monthLabel(TODAY_YM)+')';
 }
 
 // ── LOGIN ──
-function refreshLoginDropdown() {
-  var sel=document.getElementById('lg-flat'); if(!sel) return;
-  var curVal=sel.value;
+function refreshLoginDropdown(){
+  var sel=document.getElementById('lg-flat');if(!sel)return;
+  var cur=sel.value;
   var opts='<option value="">\u2014 Choose your flat \u2014</option>';
-  FLATS.forEach(function(f){ opts+='<option value="'+f.id+'">🏠 '+f.name+' \u00b7 '+f.floor+'</option>'; });
-  opts+='<option value="admin">🔐 Admin (Society Manager)</option>';
-  sel.innerHTML=opts;
-  sel.value=curVal;
+  FLATS.forEach(function(f){opts+='<option value="'+f.id+'">\ud83c\udfe0 '+f.name+' \u00b7 '+f.floor+'</option>';});
+  opts+='<option value="admin">\ud83d\udd10 Admin (Society Manager)</option>';
+  sel.innerHTML=opts;sel.value=cur;
 }
-function onFlatChange() {
+function onFlatChange(){
   var v=document.getElementById('lg-flat').value;
-  var ap=document.getElementById('adm-panel'), rp=document.getElementById('rst-panel');
+  var ap=document.getElementById('adm-panel'),rp=document.getElementById('rst-panel');
   ap.style.display='';
-  if(v==='admin'){ ap.classList.add('show'); } else { ap.classList.remove('show'); rp.classList.remove('show'); }
+  if(v==='admin'){ap.classList.add('show');}else{ap.classList.remove('show');rp.classList.remove('show');}
 }
-function showRst(){ document.getElementById('adm-panel').style.display='none'; document.getElementById('rst-panel').classList.add('show'); }
-function hideRst(){ document.getElementById('adm-panel').style.display=''; document.getElementById('rst-panel').classList.remove('show'); }
-function doRst() {
+function showRst(){document.getElementById('adm-panel').style.display='none';document.getElementById('rst-panel').classList.add('show');}
+function hideRst(){document.getElementById('adm-panel').style.display='';document.getElementById('rst-panel').classList.remove('show');}
+function doRst(){
   var ans=document.getElementById('sec-ans').value.trim().toLowerCase().replace(/\s+/g,'');
   var np=document.getElementById('rst-pin').value;
-  if(['society406','406'].indexOf(ans)===-1){ toast('❌ Wrong answer \u2014 hint: "Society 406"'); return; }
-  if(!np||np.length<4){ toast('⚠ PIN must be \u2265 4 digits'); return; }
-  adminPin=np; saveSt(); toast('✅ PIN reset! Logging you in\u2026');
-  setTimeout(function(){ isAdmin=true; currentUser='admin'; launch(); },700);
+  if(['society406','406'].indexOf(ans)===-1){toast('\u274c Wrong answer');return;}
+  if(!np||np.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}
+  adminPin=np;saveSt();toast('\u2705 PIN reset!');
+  setTimeout(function(){isAdmin=true;currentUser='admin';launch();},700);
 }
-function doLogin() {
+function doLogin(){
   var flat=document.getElementById('lg-flat').value;
-  if(!flat){ toast('⚠ Please select your flat'); return; }
+  if(!flat){toast('\u26a0 Please select your flat');return;}
   if(flat==='admin'){
-    if(document.getElementById('rst-panel').classList.contains('show')){ doRst(); return; }
-    if(document.getElementById('lg-pin').value!==adminPin){ toast('❌ Incorrect PIN'); return; }
-    isAdmin=true; currentUser='admin';
-  } else { isAdmin=false; currentUser=flat; }
+    if(document.getElementById('rst-panel').classList.contains('show')){doRst();return;}
+    if(document.getElementById('lg-pin').value!==adminPin){toast('\u274c Incorrect PIN');return;}
+    isAdmin=true;currentUser='admin';
+  }else{isAdmin=false;currentUser=flat;}
   launch();
 }
-function launch(){
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app').style.display='block';
-  setupApp();
-}
-function doLogout() {
-  currentUser=null; isAdmin=false;
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('app').style.display='none';
-  ['lg-pin','sec-ans','rst-pin'].forEach(function(i){ var e=document.getElementById(i); if(e) e.value=''; });
+function launch(){document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';setupApp();}
+function doLogout(){
+  currentUser=null;isAdmin=false;
+  document.getElementById('login-screen').style.display='flex';document.getElementById('app').style.display='none';
+  ['lg-pin','sec-ans','rst-pin'].forEach(function(i){var e=document.getElementById(i);if(e)e.value='';});
   document.getElementById('lg-flat').value='';
-  var ap=document.getElementById('adm-panel'), rp=document.getElementById('rst-panel');
-  ap.classList.remove('show'); rp.classList.remove('show'); ap.style.display='';
+  var ap=document.getElementById('adm-panel'),rp=document.getElementById('rst-panel');
+  ap.classList.remove('show');rp.classList.remove('show');ap.style.display='';
 }
 
 // ── SETUP ──
-function setupApp() {
-  viewMonth=TODAY_YM; ensureMonth(viewMonth);
-  var fObj=FLATS.find(function(f){ return f.id===currentUser; });
+function setupApp(){
+  viewMonth=TODAY_YM;ensureMonth(viewMonth);
+  var fObj=FLATS.find(function(f){return f.id===currentUser;});
   var name=isAdmin?'Admin':(fObj?fObj.name+' \u00b7 '+fObj.floor:currentUser);
   document.getElementById('u-nm').textContent=name;
-  document.getElementById('u-av').textContent=isAdmin?'🛡':'🏠';
+  document.getElementById('u-av').textContent=isAdmin?'\ud83d\udee1':'\ud83c\udfe0';
   document.getElementById('u-av').style.background=isAdmin?'rgba(201,168,76,.2)':(fObj?fObj.bg:'#eee');
   document.getElementById('u-role').textContent=isAdmin?'ADMIN':'MEMBER';
   document.getElementById('u-role').className='r-pill '+(isAdmin?'r-adm':'r-mem');
   document.getElementById('tb-date').textContent=TODAY.toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  ['overview','contrib','expenses','pay','admin','settings'].forEach(function(t){ document.getElementById('tab-'+t).classList.add('hidden'); });
-  ['overview','contrib','expenses','pay'].forEach(function(t){ document.getElementById('tab-'+t).classList.remove('hidden'); });
+  ['overview','contrib','expenses','pay','admin','settings'].forEach(function(t){document.getElementById('tab-'+t).classList.add('hidden');});
+  ['overview','contrib','expenses','pay'].forEach(function(t){document.getElementById('tab-'+t).classList.remove('hidden');});
   if(isAdmin){
-    ['tab-admin','tab-settings'].forEach(function(t){ document.getElementById(t).classList.remove('hidden'); });
-    document.getElementById('add-exp-btn').classList.remove('hidden');
-    document.getElementById('act-col').classList.remove('hidden');
-    populateAdmSelects(); loadCfgForm();
-  } else {
-    document.getElementById('act-col').classList.add('hidden');
-    document.getElementById('add-exp-btn').classList.add('hidden');
-  }
-  renderAll(); showTab('overview');
+    ['tab-admin','tab-settings'].forEach(function(t){document.getElementById(t).classList.remove('hidden');});
+    document.getElementById('add-exp-btn').classList.remove('hidden');document.getElementById('act-col').classList.remove('hidden');
+    populateAdmSelects();loadCfgForm();
+  }else{document.getElementById('act-col').classList.add('hidden');document.getElementById('add-exp-btn').classList.add('hidden');}
+  renderAll();showTab('overview');
 }
 
 // ── RENDER ALL ──
-function renderAll() {
-  try {
-    var mh=document.getElementById('member-history-section'); if(mh) mh.remove();
-    renderPickers(); renderAlert(); renderStats(); renderCycleBar();
-    renderFlatCards(); renderContribTable(); renderExpenses(); renderRulesBox(); renderPayPage();
-  } catch(err){ console.error('renderAll error:',err); }
+function renderAll(){
+  try{
+    var mh=document.getElementById('member-history-section');if(mh)mh.remove();
+    renderPickers();renderAlert();renderStats();renderCycleBar();
+    renderFlatCards();renderContribTable();renderExpenses();renderRulesBox();renderPayPage();
+  }catch(err){console.error('renderAll:',err);}
 }
 
-function renderAlert() {
-  var d=dom(), ym=TODAY_YM;
-  function fill(aid, forMember) {
+function renderAlert(){
+  var d=dom(),ym=TODAY_YM;
+  function fill(aid,forMember){
     var cls,ico,title,body;
     if(penaltyActive(ym)&&d>cfg.penaltyDay){
-      cls='ab-danger'; ico='🚨'; title='Penalty Active!';
-      if(forMember&&currentUser&&currentUser!=='admin'){ var cb=cumBal(currentUser,ym); body=cb>0?'Your flat owes \u20b9'+cb+' including penalty. Pay immediately!':'Your flat is fully paid \u2705'; }
+      cls='ab-danger';ico='\ud83d\udea8';title='Penalty Active!';
+      if(forMember&&currentUser&&currentUser!=='admin'){var cb=cumBal(currentUser,ym);body=cb>0?'Your flat owes \u20b9'+cb+' incl. penalty. Pay immediately!':'Your flat is fully paid \u2705';}
       else body='Deadline passed ('+ord(cfg.penaltyDay)+'). \u20b9'+cfg.penaltyAmt+'/day penalty running.';
-    } else if(d>cfg.warnDay){
-      cls='ab-warn'; ico='⏰'; title='Deadline Approaching!';
-      if(forMember&&currentUser&&currentUser!=='admin'){ var cb2=cumBal(currentUser,ym); body=cb2>0?'\u20b9'+cb2+' due. '+(cfg.penaltyDay-d)+' day(s) left!':'Your flat is fully paid \u2705'; }
-      else body=(cfg.penaltyDay-d)+' day(s) before \u20b9'+cfg.penaltyAmt+'/day penalty starts.';
-    } else {
-      cls='ab-ok'; ico='📅'; title='Monthly Contribution Due';
-      if(forMember&&currentUser&&currentUser!=='admin'){ var cb3=cumBal(currentUser,ym); body=cb3>0?'\u20b9'+cb3+' due for '+monthLabel(ym)+'. Pay before '+ord(cfg.penaltyDay)+'.':'Your flat is paid for '+monthLabel(ym)+' \u2705'; }
+    }else if(d>cfg.warnDay){
+      cls='ab-warn';ico='\u23f0';title='Deadline Approaching!';
+      if(forMember&&currentUser&&currentUser!=='admin'){var cb2=cumBal(currentUser,ym);body=cb2>0?'\u20b9'+cb2+' due. '+(cfg.penaltyDay-d)+' day(s) left!':'Your flat is fully paid \u2705';}
+      else body=(cfg.penaltyDay-d)+' day(s) before \u20b9'+cfg.penaltyAmt+'/day penalty.';
+    }else{
+      cls='ab-ok';ico='\ud83d\udcc5';title='Monthly Contribution Due';
+      if(forMember&&currentUser&&currentUser!=='admin'){var cb3=cumBal(currentUser,ym);body=cb3>0?'\u20b9'+cb3+' due for '+monthLabel(ym)+'. Pay before '+ord(cfg.penaltyDay)+'.':'Your flat is paid \u2705';}
       else body='\u20b9'+cfg.baseAmount+' due for '+monthLabel(ym)+'. Pay before '+ord(cfg.penaltyDay)+'.';
     }
     var el=document.getElementById(aid);
-    if(el) el.innerHTML='<div class="ab '+cls+'"><div class="ab-ico">'+ico+'</div><div class="ab-body"><strong>'+title+'</strong><span>'+body+'</span></div></div>';
+    if(el)el.innerHTML='<div class="ab '+cls+'"><div class="ab-ico">'+ico+'</div><div class="ab-body"><strong>'+title+'</strong><span>'+body+'</span></div></div>';
   }
-  fill('ov-alert',!isAdmin); fill('ct-alert',!isAdmin);
+  fill('ov-alert',!isAdmin);fill('ct-alert',!isAdmin);
 }
 
-function renderStats() {
+function renderStats(){
   var ym=TODAY_YM;
-  var col=totCollected(ym), spt=totSpent(ym), bal=col-spt, pnd=totPending(ym), clr=paidCnt(ym);
+  var col=totCollected(ym),spt=totSpent(ym),bal=col-spt,pnd=totPending(ym),clr=paidCnt(ym);
   document.getElementById('s-col').textContent='\u20b9'+col.toLocaleString('en-IN');
   document.getElementById('s-spt').textContent='\u20b9'+spt.toLocaleString('en-IN');
   document.getElementById('s-bal').textContent=(bal<0?'-':'')+'\u20b9'+Math.abs(bal).toLocaleString('en-IN');
   document.getElementById('s-bal').className='sc-vl '+(bal>=0?'t':'r');
   document.getElementById('s-bal-sub').textContent=bal<0?'\u26a0 Deficit!':'Available funds';
   document.getElementById('s-pnd').textContent='\u20b9'+pnd.toLocaleString('en-IN');
-  document.getElementById('s-pnd-sub').textContent=FLATS.filter(function(f){ return cumBal(f.id,ym)>0; }).length+' flat(s) pending';
+  document.getElementById('s-pnd-sub').textContent=FLATS.filter(function(f){return cumBal(f.id,ym)>0;}).length+' flat(s) pending';
   document.getElementById('s-clr').textContent=clr+'/7';
-  var cs=document.getElementById('s-col-sub'); if(cs) cs.textContent='Oct 2025 \u2013 '+monthLabel(ym);
-  var cl=document.getElementById('s-clr-sub'); if(cl) cl.textContent='Paid as of '+monthLabel(ym);
+  var cs=document.getElementById('s-col-sub');if(cs)cs.textContent='Oct 2025 \u2013 '+monthLabel(ym);
+  var cl=document.getElementById('s-clr-sub');if(cl)cl.textContent='Paid as of '+monthLabel(ym);
 }
 
-function renderCycleBar() {
-  var steps=[
-    {day:cfg.startDay,label:'Cycle Start',icon:'📌',cls:'cs-start'},
-    {day:cfg.warnDay,label:'Warning Alert',icon:'⚠',cls:'cs-warn'},
-    {day:cfg.penaltyDay,label:'Penalty Active',icon:'🔴',cls:'cs-pen'},
-    {day:cfg.updateDay,label:'Month Reset',icon:'🔄',cls:'cs-start'}
-  ];
-  var d=dom();
-  if(!steps.find(function(s){ return s.day===d; })) steps.push({day:d,label:'Today',icon:'📍',cls:'cs-today'});
-  steps.sort(function(a,b){ return a.day-b.day; });
+function renderCycleBar(){
+  var steps=[{day:cfg.startDay,label:'Cycle Start',icon:'\ud83d\udccc',cls:'cs-start'},{day:cfg.warnDay,label:'Warning Alert',icon:'\u26a0',cls:'cs-warn'},{day:cfg.penaltyDay,label:'Penalty Active',icon:'\ud83d\udd34',cls:'cs-pen'},{day:cfg.updateDay,label:'Month Reset',icon:'\ud83d\udd04',cls:'cs-start'}];
+  var d=dom();if(!steps.find(function(s){return s.day===d;}))steps.push({day:d,label:'Today',icon:'\ud83d\udccd',cls:'cs-today'});
+  steps.sort(function(a,b){return a.day-b.day;});
   document.getElementById('cyc-track').innerHTML=steps.map(function(s){
     return '<div class="cyc-step '+s.cls+(s.day===d?' cs-today':'')+'"><div class="cyc-dot">'+s.icon+'</div><div class="cyc-day">'+ord(s.day)+'</div><div class="cyc-lbl">'+s.label+(s.day===d?' (Today)':'')+'</div></div>';
   }).join('');
 }
 
-function renderFlatCards() {
-  var ym=TODAY_YM, g=document.getElementById('flats-grid'); g.innerHTML='';
-  FLATS.forEach(function(f) {
-    var bd=cumBaseDue(f.id,ym), pen=cumPenalty(f.id,ym), paid=cumPaid(f.id,ym);
-    var due=bd+pen, bal=Math.max(0,due-paid), pct=due>0?Math.min(100,Math.round(paid/due*100)):100;
+function renderFlatCards(){
+  var ym=TODAY_YM,g=document.getElementById('flats-grid');g.innerHTML='';
+  FLATS.forEach(function(f){
+    var bd=cumBaseDue(f.id,ym),pen=cumPenalty(f.id,ym),paid=cumPaid(f.id,ym);
+    var due=bd+pen,bal=Math.max(0,due-paid),pct=due>0?Math.min(100,Math.round(paid/due*100)):100;
     var s=getStatus(f.id,ym);
     var sM={paid:['sb-paid','\u2705 Paid','pf-paid','fc-paid'],warn:['sb-warn','\u26a0 Due Soon','pf-warn','fc-warn'],danger:['sb-danger','\ud83d\udd34 Overdue','pf-danger','fc-danger'],ok:['sb-ok','\ud83d\udd35 Pending','pf-ok','fc-ok']};
-    var sm=sM[s]||sM.ok, sbC=sm[0], sbT=sm[1], pfC=sm[2], fcC=sm[3];
-    var isMe=!isAdmin&&f.id===currentUser;
-    g.innerHTML+='<div class="fc '+fcC+'" style="'+(isMe?'box-shadow:0 0 0 3px '+f.color+';':'')+'">'
-      +'<div class="fc-top"><div class="fc-info">'
-      +'<div class="fc-av" style="background:'+f.bg+';color:'+f.color+'">'+f.emoji+'</div>'
-      +'<div><div class="fc-nm">'+f.name+(isMe?' <span style="font-size:10px;background:'+f.color+';color:#fff;padding:1px 6px;border-radius:10px;vertical-align:middle">You</span>':'')+' <span style="font-size:10px;color:var(--ink-mu)">\u00b7 '+f.floor+'</span></div>'
-      +'<div class="fc-fl">'+f.block+'</div></div></div>'
-      +'<div class="sb '+sbC+'">'+sbT+'</div></div>'
+    var sm=sM[s]||sM.ok;var isMe=!isAdmin&&f.id===currentUser;
+    // Can edit vehicle: members edit own flat, admin edits all
+    var canEditVeh=(isMe||isAdmin);
+    var vehHtml=renderVehicleInfo(f.id);
+    g.innerHTML+='<div class="fc '+sm[3]+'" style="'+(isMe?'box-shadow:0 0 0 3px '+f.color+';':'')+'">'
+      +'<div class="fc-top"><div class="fc-info"><div class="fc-av" style="background:'+f.bg+';color:'+f.color+'">\ud83c\udfe0</div>'
+      +'<div><div class="fc-nm">'+f.name+(isMe?' <span style="font-size:10px;background:'+f.color+';color:#fff;padding:1px 6px;border-radius:10px;vertical-align:middle">You</span>':'')+'</div>'
+      +'<div class="fc-fl">'+f.floor+' \u00b7 '+f.block+'</div></div></div>'
+      +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">'
+      +'<div class="sb '+sm[0]+'">'+sm[1]+'</div>'
+      +(canEditVeh?'<button class="btn btn-ghost" style="font-size:11px;padding:2px 8px;margin-top:2px" onclick="openVehicleModal(\''+f.id+'\')">'+(isMe?'&#128221; My Details':'&#9999; Edit')+'</button>':'')
+      +'</div></div>'
       +(pen>0?'<div class="pen-tag">\u26a0 Penalty: \u20b9'+pen+'</div>':'')
       +'<div class="pw"><div class="pl"><span>'+pct+'% paid</span><span>\u20b9'+paid+' / \u20b9'+due+'</span></div>'
-      +'<div class="pb"><div class="pf '+pfC+'" style="width:'+pct+'%"></div></div></div>'
-      +'<div class="fa">'
-      +'<div class="fai"><div class="fai-l">Base Due</div><div class="fai-v">\u20b9'+bd+'</div></div>'
+      +'<div class="pb"><div class="pf '+sm[2]+'" style="width:'+pct+'%"></div></div></div>'
+      +'<div class="fa"><div class="fai"><div class="fai-l">Base Due</div><div class="fai-v">\u20b9'+bd+'</div></div>'
       +'<div class="fai"><div class="fai-l">Penalty</div><div class="fai-v" style="color:'+(pen>0?'#b02020':'#aaa')+'">'+(pen>0?'\u20b9'+pen:'\u2014')+'</div></div>'
       +'<div class="fai"><div class="fai-l">Paid</div><div class="fai-v" style="color:#2d7a4f">\u20b9'+paid+'</div></div>'
-      +'<div class="fai"><div class="fai-l">Balance</div><div class="fai-v" style="color:'+(bal>0?'#b02020':'#2d7a4f')+'">'+(bal>0?'\u20b9'+bal:'Clear \u2713')+'</div></div>'
-      +'</div>'
-      +'<div style="margin-top:8px;font-size:10px;color:var(--ink-mu);text-align:center;padding:4px 8px;background:var(--cream-dk);border-radius:6px">📊 Cumulative: Oct 2025 \u2013 '+monthLabel(ym)+'</div>'
+      +'<div class="fai"><div class="fai-l">Balance</div><div class="fai-v" style="color:'+(bal>0?'#b02020':'#2d7a4f')+'">'+(bal>0?'\u20b9'+bal:'Clear \u2713')+'</div></div></div>'
+      +vehHtml
+      +'<div style="margin-top:8px;font-size:10px;color:var(--ink-mu);text-align:center;padding:4px 8px;background:var(--cream-dk);border-radius:6px">\ud83d\udcca Cumulative: Oct 2025 \u2013 '+monthLabel(ym)+'</div>'
       +'</div>';
   });
 }
 
-function renderContribTable() {
-  var ym=displayMonth(), tb=document.getElementById('ct-body');
-  tb.innerHTML='';
-  if(viewMonth>TODAY_YM) {
-    tb.innerHTML='<tr><td colspan="10" style="padding:14px 18px;background:var(--amber-lt);color:var(--amber);font-size:13px;border-radius:8px">'
-      +'📅 Viewing '+monthLabel(viewMonth)+' \u2014 showing '+monthLabel(TODAY_YM)+' data until 1st '+monthLabel(viewMonth)+' arrives.</td></tr>';
-  }
+function renderContribTable(){
+  var ym=displayMonth(),tb=document.getElementById('ct-body');tb.innerHTML='';
+  if(viewMonth>TODAY_YM){tb.innerHTML='<tr><td colspan="10" style="padding:14px 18px;background:var(--amber-lt);color:var(--amber);font-size:13px;border-radius:8px">\ud83d\udcc5 Viewing '+monthLabel(viewMonth)+' \u2014 showing '+monthLabel(TODAY_YM)+' data until 1st '+monthLabel(viewMonth)+' arrives.</td></tr>';}
   var notice=document.getElementById('ct-my-flat-notice');
   if(!isAdmin&&notice){
-    var fObj=FLATS.find(function(f){ return f.id===currentUser; });
+    var fObj=FLATS.find(function(f){return f.id===currentUser;});
     notice.classList.remove('hidden');
-    notice.innerHTML='<div style="background:linear-gradient(135deg,'+(fObj?fObj.bg:'#e0f4f4')+',rgba(255,255,255,.5));border:1px solid '+(fObj?fObj.color+'33':'rgba(13,115,119,.2)')+';border-radius:var(--rsm);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px">'
-      +'<span style="font-size:22px">'+(fObj?fObj.emoji:'🏠')+'</span>'
-      +'<div><div style="font-size:14px;font-weight:600;color:var(--ink)">'+(fObj?fObj.name+' \u00b7 '+fObj.floor:'Your Flat')+'</div>'
-      +'<div style="font-size:12px;color:var(--ink-mu)">Cumulative contributions up to '+monthLabel(ym)+'</div></div></div>';
-  } else if(notice){ notice.classList.add('hidden'); }
-
-  var flats=isAdmin?FLATS:FLATS.filter(function(f){ return f.id===currentUser; });
-  flats.forEach(function(f) {
-    var bd=cumBaseDue(f.id,ym), pen=cumPenalty(f.id,ym), paid=cumPaid(f.id,ym), due=bd+pen, bal=Math.max(0,due-paid);
-    var c=getMD(ym).contributions[f.id], s=getStatus(f.id,ym), rCls=s==='danger'?'rw-danger':s==='warn'?'rw-warn':'';
-    var effPen=getEffectivePenalty(f.id,ym), fid=f.id;
+    notice.innerHTML='<div style="background:linear-gradient(135deg,'+(fObj?fObj.bg:'#e0f4f4')+',rgba(255,255,255,.5));border:1px solid '+(fObj?fObj.color+'33':'rgba(13,115,119,.2)')+';border-radius:var(--rsm);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">'+(fObj?'\ud83c\udfe0':'\ud83c\udfe0')+'</span><div><div style="font-size:14px;font-weight:600;color:var(--ink)">'+(fObj?fObj.name+' \u00b7 '+fObj.floor:'Your Flat')+'</div><div style="font-size:12px;color:var(--ink-mu)">Cumulative contributions up to '+monthLabel(ym)+'</div></div></div>';
+  }else if(notice){notice.classList.add('hidden');}
+  var flats=isAdmin?FLATS:FLATS.filter(function(f){return f.id===currentUser;});
+  flats.forEach(function(f){
+    var bd=cumBaseDue(f.id,ym),pen=cumPenalty(f.id,ym),paid=cumPaid(f.id,ym),due=bd+pen,bal=Math.max(0,due-paid);
+    var c=getMD(ym).contributions[f.id],s=getStatus(f.id,ym),rCls=s==='danger'?'rw-danger':s==='warn'?'rw-warn':'';
+    var effPen=getEffectivePenalty(f.id,ym),fid=f.id;
     var baseCell,penCell,paidCell,statusCell,act;
     if(isAdmin){
       baseCell='<input class="inline-inp" type="number" value="'+c.baseDue+'" onchange="inlineEdit(\''+fid+'\',\'baseDue\',this.value)">';
@@ -1332,472 +1281,584 @@ function renderContribTable() {
         +'<option value="ok"'+(s==='ok'&&hasOvr?' selected':'')+'>🔵 Pending</option>'
         +'<option value="warn"'+(s==='warn'&&hasOvr?' selected':'')+'>⚠ Due Soon</option>'
         +'<option value="danger"'+(s==='danger'&&hasOvr?' selected':'')+'>🔴 Overdue</option>'
-        +'<option value="paid"'+(s==='paid'?' selected':'')+'>✅ Paid</option>'
-        +'</select>';
-      act='<td><div class="ca">'
-        +'<button class="btn btn-t btn-xs" onclick="quickPay(\''+fid+'\')">✓ Pay</button>'
-        +'<button class="btn btn-amber btn-xs" onclick="openFlatEdit(\''+fid+'\')">✏️</button>'
-        +'<button class="btn btn-d btn-xs" onclick="resetOneFlat(\''+fid+'\')">🔄</button>'
-        +'</div></td>';
-    } else {
-      baseCell='\u20b9'+bd;
-      penCell=pen>0?'<span style="color:#b02020;font-weight:600">\u20b9'+pen+'</span>':'\u2014';
+        +'<option value="paid"'+(s==='paid'?' selected':'')+'>✅ Paid</option></select>';
+      act='<td><div class="ca"><button class="btn btn-t btn-xs" onclick="quickPay(\''+fid+'\')">✓ Pay</button><button class="btn btn-amber btn-xs" onclick="openFlatEdit(\''+fid+'\')">✏️</button><button class="btn btn-d btn-xs" onclick="resetOneFlat(\''+fid+'\')">🔄</button></div></td>';
+    }else{
+      baseCell='\u20b9'+bd;penCell=pen>0?'<span style="color:#b02020;font-weight:600">\u20b9'+pen+'</span>':'\u2014';
       paidCell='<span style="color:#2d7a4f;font-weight:600">\u20b9'+paid+'</span>';
-      statusCell='<span class="sb sb-'+s+'">'+(s==='paid'?'✅ Paid':s==='warn'?'⚠ Due Soon':s==='danger'?'🔴 Overdue':'🔵 Pending')+'</span>';
-      act='';
+      statusCell='<span class="sb sb-'+s+'">'+(s==='paid'?'✅ Paid':s==='warn'?'⚠ Due Soon':s==='danger'?'🔴 Overdue':'🔵 Pending')+'</span>';act='';
     }
-    tb.innerHTML+='<tr class="'+rCls+'">'
-      +'<td><strong>'+f.name+'</strong></td><td>'+f.floor+'</td>'
+    tb.innerHTML+='<tr class="'+rCls+'"><td><strong>'+f.name+'</strong></td><td>'+f.floor+'</td>'
       +'<td><span style="background:'+f.bg+';color:'+f.color+';padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600">'+f.block+'</span></td>'
-      +'<td>'+baseCell+'</td><td>'+penCell+'</td>'
-      +'<td><strong>\u20b9'+due+'</strong></td>'
-      +'<td>'+paidCell+'</td>'
-      +'<td style="color:'+(bal>0?'#b02020':'#2d7a4f')+';font-weight:600">'+(bal>0?'\u20b9'+bal:'\u2713 Clear')+'</td>'
+      +'<td>'+baseCell+'</td><td>'+penCell+'</td><td><strong>\u20b9'+due+'</strong></td>'
+      +'<td>'+paidCell+'</td><td style="color:'+(bal>0?'#b02020':'#2d7a4f')+';font-weight:600">'+(bal>0?'\u20b9'+bal:'\u2713 Clear')+'</td>'
       +'<td>'+statusCell+'</td>'+act+'</tr>';
   });
-  if(!isAdmin&&currentUser) renderMemberHistory(ym);
+  if(!isAdmin&&currentUser)renderMemberHistory(ym);
 }
 
 function inlineEdit(fid,field,val){
-  var v=parseFloat(val)||0; if(v<0){toast('\u26a0 Cannot be negative');return;}
-  var c=getMD(viewMonth).contributions[fid]; c[field]=v;
-  if(field==='paid') syncPayments(fid,viewMonth,v);
-  saveSt(); renderContribTable(); renderStats(); renderFlatCards();
+  var v=parseFloat(val)||0;if(v<0){toast('\u26a0 Cannot be negative');return;}
+  var c=getMD(viewMonth).contributions[fid];c[field]=v;
+  if(field==='paid')syncPayments(fid,viewMonth,v);
+  saveSt();renderContribTable();renderStats();renderFlatCards();
 }
 function inlineSt(fid,ns){
   var c=getMD(viewMonth).contributions[fid];
-  if(ns==='auto'){ delete c.statusOverride; }
-  else if(ns==='paid'){ var fd=flatDue(fid,viewMonth); c.paid=fd; delete c.statusOverride; syncPayments(fid,viewMonth,fd); }
-  else { c.statusOverride=ns; }
-  saveSt(); renderContribTable(); renderStats(); renderFlatCards(); toast('\u2705 Status updated');
+  if(ns==='auto'){delete c.statusOverride;}
+  else if(ns==='paid'){var fd=flatDue(fid,viewMonth);c.paid=fd;delete c.statusOverride;syncPayments(fid,viewMonth,fd);}
+  else{c.statusOverride=ns;}
+  saveSt();renderContribTable();renderStats();renderFlatCards();toast('\u2705 Status updated');
 }
 
-function renderMemberHistory(ym) {
-  var fid=currentUser; if(!fid||fid==='admin') return;
-  var f=FLATS.find(function(x){ return x.id===fid; });
-  var existing=document.getElementById('member-history-section'); if(existing) existing.remove();
-  var sec=document.createElement('div'); sec.id='member-history-section'; sec.style.marginTop='22px';
-  var txns=[], cur=NAV_START;
+function renderMemberHistory(ym){
+  var fid=currentUser;if(!fid||fid==='admin')return;
+  var existing=document.getElementById('member-history-section');if(existing)existing.remove();
+  var sec=document.createElement('div');sec.id='member-history-section';sec.style.marginTop='22px';
+  var txns=[],cur=NAV_START;
   while(cur<=ym){
     var mc=allData[cur]&&allData[cur].contributions[fid];
     if(mc){
       var ep=getEffectivePenalty(fid,cur);
-      if(mc.baseDue>0)      txns.push({date:ord(cfg.startDay)+' '+monthLabel(cur),type:'debit',label:'Contribution Due \u2014 '+monthLabel(cur),amount:mc.baseDue,icon:'📋'});
-      if((mc.arrears||0)>0) txns.push({date:'Carried forward',type:'debit',label:'Arrears Carried \u2014 '+monthLabel(cur),amount:mc.arrears,icon:'\u21a9'});
-      if(ep>0)              txns.push({date:'After '+ord(cfg.penaltyDay)+' '+monthLabel(cur),type:'debit',label:'Penalty \u2014 '+monthLabel(cur),amount:ep,icon:'\u26a0'});
+      if(mc.baseDue>0)txns.push({date:ord(cfg.startDay)+' '+monthLabel(cur),type:'debit',label:'Contribution Due \u2014 '+monthLabel(cur),amount:mc.baseDue,icon:'\ud83d\udccb'});
+      if((mc.arrears||0)>0)txns.push({date:'Carried forward',type:'debit',label:'Arrears Carried \u2014 '+monthLabel(cur),amount:mc.arrears,icon:'\u21a9'});
+      if(ep>0)txns.push({date:'After '+ord(cfg.penaltyDay)+' '+monthLabel(cur),type:'debit',label:'Penalty \u2014 '+monthLabel(cur),amount:ep,icon:'\u26a0'});
       var ap=mc.paid||0;
       if(ap>0){
-        var ps=(mc.payments||[]).reduce(function(s,p){ return s+(p.amt||0); },0);
-        if(mc.payments&&mc.payments.length>0&&Math.abs(ps-ap)<0.01){
-          mc.payments.forEach(function(p){
-            var pd=p.date?new Date(p.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):monthLabel(cur);
-            txns.push({date:pd,type:'credit',label:'Payment \u2014 '+monthLabel(cur),amount:p.amt,icon:'\u2705'});
-          });
-        } else { txns.push({date:monthLabel(cur),type:'credit',label:'Payment \u2014 '+monthLabel(cur),amount:ap,icon:'\u2705'}); }
+        var ps=(mc.payments||[]).reduce(function(s,p){return s+(p.amt||0);},0);
+        if(mc.payments&&mc.payments.length>0&&Math.abs(ps-ap)<0.01){mc.payments.forEach(function(p){var pd=p.date?new Date(p.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}):monthLabel(cur);txns.push({date:pd,type:'credit',label:'Payment \u2014 '+monthLabel(cur),amount:p.amt,icon:'\u2705'});});}
+        else{txns.push({date:monthLabel(cur),type:'credit',label:'Payment \u2014 '+monthLabel(cur),amount:ap,icon:'\u2705'});}
       }
     }
     cur=nextYM(cur);
   }
-  var bd=cumBaseDue(fid,ym), pen=cumPenalty(fid,ym), paid=cumPaid(fid,ym), due=bd+pen, bal=Math.max(0,due-paid), mLbl=monthLabel(ym);
-  var html='<div style="font-family:\'DM Serif Display\',serif;font-size:18px;color:var(--ink);margin-bottom:14px">📋 Your Statement \u2014 Up to '+mLbl+'</div>'
+  var bd=cumBaseDue(fid,ym),pen=cumPenalty(fid,ym),paid=cumPaid(fid,ym),due=bd+pen,bal=Math.max(0,due-paid),mLbl=monthLabel(ym);
+  var html='<div style="font-family:\'DM Serif Display\',serif;font-size:18px;color:var(--ink);margin-bottom:14px">\ud83d\udccb Your Statement \u2014 Up to '+mLbl+'</div>'
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:11px;margin-bottom:18px">'
-    +'<div style="background:#fff;border-radius:var(--rsm);padding:14px;border:1px solid var(--border);text-align:center;box-shadow:var(--sh-sm)"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mu);margin-bottom:4px">Total Due</div><div style="font-size:22px;font-family:\'DM Serif Display\',serif;color:var(--danger)">\u20b9'+due+'</div></div>'
-    +'<div style="background:#fff;border-radius:var(--rsm);padding:14px;border:1px solid var(--border);text-align:center;box-shadow:var(--sh-sm)"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mu);margin-bottom:4px">Paid</div><div style="font-size:22px;font-family:\'DM Serif Display\',serif;color:var(--green)">\u20b9'+paid+'</div></div>'
-    +'<div style="background:#fff;border-radius:var(--rsm);padding:14px;border:1px solid var(--border);text-align:center;box-shadow:var(--sh-sm)"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mu);margin-bottom:4px">Balance</div><div style="font-size:22px;font-family:\'DM Serif Display\',serif;color:'+(bal>0?'var(--danger)':'var(--green)')+'">'+( bal>0?'\u20b9'+bal:'Clear \u2713')+'</div></div>'
+    +'<div style="background:#fff;border-radius:var(--rsm);padding:14px;border:1px solid var(--border);text-align:center"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mu);margin-bottom:4px">Total Due</div><div style="font-size:22px;font-family:\'DM Serif Display\',serif;color:var(--danger)">\u20b9'+due+'</div></div>'
+    +'<div style="background:#fff;border-radius:var(--rsm);padding:14px;border:1px solid var(--border);text-align:center"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mu);margin-bottom:4px">Paid</div><div style="font-size:22px;font-family:\'DM Serif Display\',serif;color:var(--green)">\u20b9'+paid+'</div></div>'
+    +'<div style="background:#fff;border-radius:var(--rsm);padding:14px;border:1px solid var(--border);text-align:center"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-mu);margin-bottom:4px">Balance</div><div style="font-size:22px;font-family:\'DM Serif Display\',serif;color:'+(bal>0?'var(--danger)':'var(--green)')+'">'+( bal>0?'\u20b9'+bal:'Clear \u2713')+'</div></div>'
     +(pen>0?'<div style="background:var(--danger-lt);border-radius:var(--rsm);padding:14px;border:1px solid rgba(176,32,32,.15);text-align:center"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--danger);margin-bottom:4px">Penalty</div><div style="font-size:22px;font-family:\'DM Serif Display\',serif;color:var(--danger)">\u20b9'+pen+'</div></div>':'')
-    +'</div>'
-    +'<div style="background:#fff;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;box-shadow:var(--sh-sm)">'
-    +'<div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:12px 16px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.7)">📊 Transaction Details \u2014 Up to '+mLbl+'</div>';
-  if(txns.length){
-    txns.forEach(function(t,i){
-      html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--cream-dk)'+(i===txns.length-1?';border-bottom:none':'')+'">'
-        +'<div style="display:flex;align-items:center;gap:11px">'
-        +'<div style="width:36px;height:36px;border-radius:10px;background:'+(t.type==='credit'?'var(--green-lt)':'var(--danger-lt)')+';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+t.icon+'</div>'
-        +'<div><div style="font-size:14px;font-weight:500;color:var(--ink)">'+t.label+'</div><div style="font-size:12px;color:var(--ink-mu)">📅 '+t.date+'</div></div></div>'
-        +'<div style="font-family:\'DM Serif Display\',serif;font-size:18px;font-weight:700;color:'+(t.type==='credit'?'var(--green)':'var(--danger)')+';white-space:nowrap;margin-left:12px">'+(t.type==='credit'?'+':'-')+'\u20b9'+t.amount.toLocaleString('en-IN')+'</div>'
-        +'</div>';
-    });
-  } else { html+='<div style="padding:22px;text-align:center;color:var(--ink-mu);font-size:13px">No transactions recorded yet.</div>'; }
-  html+='<div style="background:var(--cream-dk);padding:12px 16px;display:flex;justify-content:space-between;align-items:center">'
-    +'<span style="font-size:13px;font-weight:600;color:var(--ink)">Running Balance</span>'
-    +'<span style="font-family:\'DM Serif Display\',serif;font-size:18px;color:'+(bal>0?'var(--danger)':'var(--green)')+'">'+( bal>0?'\u20b9'+bal+' still due':'All clear \u2713')+'</span></div></div>';
+    +'</div><div style="background:#fff;border-radius:var(--r);border:1px solid var(--border);overflow:hidden;box-shadow:var(--sh-sm)">'
+    +'<div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:12px 16px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.7)">\ud83d\udcca Transaction Details \u2014 Up to '+mLbl+'</div>';
+  if(txns.length){txns.forEach(function(t,i){html+='<div style="display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--cream-dk)'+(i===txns.length-1?';border-bottom:none':'')+'">'+'<div style="display:flex;align-items:center;gap:11px"><div style="width:36px;height:36px;border-radius:10px;background:'+(t.type==='credit'?'var(--green-lt)':'var(--danger-lt)')+';display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+t.icon+'</div><div><div style="font-size:14px;font-weight:500;color:var(--ink)">'+t.label+'</div><div style="font-size:12px;color:var(--ink-mu)">\ud83d\udcc5 '+t.date+'</div></div></div><div style="font-family:\'DM Serif Display\',serif;font-size:18px;font-weight:700;color:'+(t.type==='credit'?'var(--green)':'var(--danger)')+';white-space:nowrap;margin-left:12px">'+(t.type==='credit'?'+':'-')+'\u20b9'+t.amount.toLocaleString('en-IN')+'</div></div>';});}
+  else{html+='<div style="padding:22px;text-align:center;color:var(--ink-mu);font-size:13px">No transactions recorded yet.</div>';}
+  html+='<div style="background:var(--cream-dk);padding:12px 16px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600;color:var(--ink)">Running Balance</span><span style="font-family:\'DM Serif Display\',serif;font-size:18px;color:'+(bal>0?'var(--danger)':'var(--green)')+'">'+( bal>0?'\u20b9'+bal+' still due':'All clear \u2713')+'</span></div></div>';
   sec.innerHTML=html;
-  var rb=document.getElementById('rules-box'); if(rb&&rb.parentNode) rb.parentNode.insertBefore(sec,rb.nextSibling);
+  var rb=document.getElementById('rules-box');if(rb&&rb.parentNode)rb.parentNode.insertBefore(sec,rb.nextSibling);
 }
 
-function renderRulesBox() {
+function renderRulesBox(){
   var cLabel=MONTHS[cfg.cycleStartMonth-1]+' '+cfg.cycleStartYear;
-  document.getElementById('rules-box').innerHTML='<strong>📋 Contribution Rules</strong><br>'
+  document.getElementById('rules-box').innerHTML='<strong>\ud83d\udccb Contribution Rules</strong><br>'
     +'\u2705 From <strong>'+cLabel+'</strong>: \u20b9<strong>'+cfg.baseAmount+'</strong> due on <strong>'+ord(cfg.startDay)+'</strong> of every month<br>'
-    +'\ud83d\udfe1 After <strong>'+ord(cfg.warnDay)+'</strong>: Warning alert<br>'
-    +'\ud83d\udd34 After <strong>'+ord(cfg.penaltyDay)+'</strong>: \u20b9<strong>'+cfg.penaltyAmt+'/day</strong> penalty on unpaid balance<br>'
-    +'📊 Unpaid balance carries forward as arrears each month<br>'
-    +'\ud83d\udd12 Only Admin can modify records';
+    +'\ud83d\udfe1 After '+ord(cfg.warnDay)+': Warning | \ud83d\udd34 After '+ord(cfg.penaltyDay)+': \u20b9<strong>'+cfg.penaltyAmt+'/day</strong> penalty | \ud83d\udcca Unpaid carries as arrears';
 }
 
-function renderExpenses() {
+function renderExpenses(){
   var list=document.getElementById('exp-list');
-  var effYM=displayMonth(), exps=expsForMonth(effYM);
-  if(!exps.length){
-    var futNote=viewMonth>TODAY_YM?' (showing '+monthLabel(TODAY_YM)+')':'';
-    list.innerHTML='<div class="empty-st"><div style="font-size:40px;margin-bottom:8px">🧾</div>'
-      +'<div style="font-size:15px;font-weight:500">No expenses for '+monthLabel(effYM)+futNote+'</div>'
-      +'<div style="font-size:13px;margin-top:4px">'+(isAdmin&&viewMonth<=TODAY_YM?'Add expenses using the button above.':'')+'</div></div>';
-    return;
-  }
-  var total=exps.reduce(function(s,e){ return s+e.amount; },0);
-  var html='<div style="background:linear-gradient(135deg,#fde8e8,#fde8e8cc);border:1px solid rgba(176,32,32,.15);border-radius:var(--rsm);padding:12px 17px;margin-bottom:15px;display:flex;justify-content:space-between;align-items:center">'
-    +'<span style="font-size:14px;font-weight:600;color:var(--danger)">🧾 Total Expenses \u2014 '+monthLabel(effYM)+(viewMonth>TODAY_YM?' (current)':'')+'</span>'
-    +'<span style="font-family:\'DM Serif Display\',serif;font-size:24px;color:var(--danger)">\u20b9'+total.toLocaleString('en-IN')+'</span></div>';
+  var effYM=displayMonth(),exps=expsForMonth(effYM);
+  if(!exps.length){var futNote=viewMonth>TODAY_YM?' (showing '+monthLabel(TODAY_YM)+')':'';list.innerHTML='<div class="empty-st"><div style="font-size:40px;margin-bottom:8px">\ud83e\udded</div><div style="font-size:15px;font-weight:500">No expenses for '+monthLabel(effYM)+futNote+'</div><div style="font-size:13px;margin-top:4px">'+(isAdmin&&viewMonth<=TODAY_YM?'Add expenses using the button above.':'')+'</div></div>';return;}
+  var total=exps.reduce(function(s,e){return s+e.amount;},0);
+  var html='<div style="background:linear-gradient(135deg,#fde8e8,#fde8e8cc);border:1px solid rgba(176,32,32,.15);border-radius:var(--rsm);padding:12px 17px;margin-bottom:15px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:14px;font-weight:600;color:var(--danger)">\ud83e\udded Total Expenses \u2014 '+monthLabel(effYM)+(viewMonth>TODAY_YM?' (current)':'')+'</span><span style="font-family:\'DM Serif Display\',serif;font-size:24px;color:var(--danger)">\u20b9'+total.toLocaleString('en-IN')+'</span></div>';
   exps.forEach(function(e){
-    var ico=CAT_ICO[e.cat]||'📦', bg=CAT_BG[e.cat]||'#f0e8fa';
+    var ico=CAT_ICO[e.cat]||'\ud83d\udce6',bg=CAT_BG[e.cat]||'#f0e8fa';
     var ds=new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
-    var srcYM=Object.keys(allData).find(function(k){ return (allData[k].expenses||[]).some(function(x){ return x.id===e.id; }); })||viewMonth;
-    var btns=isAdmin?'<div style="display:flex;flex-direction:column;gap:4px;margin-left:10px;flex-shrink:0">'
-      +'<button class="btn btn-amber btn-xs" onclick="openEditExp('+e.id+',\''+srcYM+'\')">✏️ Edit</button>'
-      +'<button class="btn btn-d btn-xs" onclick="delExpense('+e.id+',\''+srcYM+'\')">🗑 Del</button></div>':'';
-    html+='<div class="ei"><div class="ei-ico" style="background:'+bg+'">'+ico+'</div>'
-      +'<div class="ei-body"><div class="ei-title">'+e.desc+'</div>'
-      +'<div class="ei-meta"><span>📅 '+ds+'</span><span class="cchip" style="background:'+bg+';color:#444">'+e.cat+'</span>'+(e.notes?'<span>\u00b7 '+e.notes+'</span>':'')+'</div></div>'
-      +'<div class="ei-amt">-\u20b9'+e.amount.toLocaleString('en-IN')+'</div>'+btns+'</div>';
+    var srcYM=Object.keys(allData).find(function(k){return (allData[k].expenses||[]).some(function(x){return x.id===e.id;});})||viewMonth;
+    var btns=isAdmin?'<div style="display:flex;flex-direction:column;gap:4px;margin-left:10px;flex-shrink:0"><button class="btn btn-amber btn-xs" onclick="openEditExp('+e.id+',\''+srcYM+'\')">✏️ Edit</button><button class="btn btn-d btn-xs" onclick="delExpense('+e.id+',\''+srcYM+'\')">🗑 Del</button></div>':'';
+    html+='<div class="ei"><div class="ei-ico" style="background:'+bg+'">'+ico+'</div><div class="ei-body"><div class="ei-title">'+e.desc+'</div><div class="ei-meta"><span>\ud83d\udcc5 '+ds+'</span><span class="cchip" style="background:'+bg+';color:#444">'+e.cat+'</span>'+(e.notes?'<span>\u00b7 '+e.notes+'</span>':'')+'</div></div><div class="ei-amt">-\u20b9'+e.amount.toLocaleString('en-IN')+'</div>'+btns+'</div>';
   });
   list.innerHTML=html;
 }
 
 function renderPayPage(){
-  ['qr-amt','pi-amt','how-amt'].forEach(function(id){ var el=document.getElementById(id); if(el) el.textContent=(id==='pi-amt'?'\u20b9':'')+cfg.baseAmount; });
-  document.getElementById('pi-soc').textContent=cfg.socName||'Society 406';
-  document.getElementById('pi-upi').textContent=cfg.upiId||'\u2014';
-  document.getElementById('pi-acn').textContent=cfg.acName||'\u2014';
-  document.getElementById('pi-due').textContent=ord(cfg.penaltyDay)+' of every month';
-  var qi=document.getElementById('qimg'), qp=document.getElementById('qph'), nq=document.getElementById('no-qr-note');
-  if(cfg.qrData){ qi.src=cfg.qrData; qi.style.display='block'; qp.style.display='none'; nq.style.display='none'; }
-  else { qi.style.display='none'; qp.style.display='block'; nq.style.display='block'; }
+  ['qr-amt','pi-amt','how-amt'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=(id==='pi-amt'?'\u20b9':'')+cfg.baseAmount;});
+  document.getElementById('pi-soc').textContent=cfg.socName||'Society 406';document.getElementById('pi-upi').textContent=cfg.upiId||'\u2014';
+  document.getElementById('pi-acn').textContent=cfg.acName||'\u2014';document.getElementById('pi-due').textContent=ord(cfg.penaltyDay)+' of every month';
+  var qi=document.getElementById('qimg'),qp=document.getElementById('qph'),nq=document.getElementById('no-qr-note');
+  if(cfg.qrData){qi.src=cfg.qrData;qi.style.display='block';qp.style.display='none';nq.style.display='none';}
+  else{qi.style.display='none';qp.style.display='block';nq.style.display='block';}
 }
 
 function showTab(name){
   ['overview','contrib','expenses','pay','admin','settings'].forEach(function(t){
     document.getElementById('page-'+t).classList.toggle('active',t===name);
-    var tb=document.getElementById('tab-'+t); if(tb) tb.classList.toggle('active',t===name);
+    var tb=document.getElementById('tab-'+t);if(tb)tb.classList.toggle('active',t===name);
   });
-  if(name==='settings') loadCfgForm();
+  if(name==='settings')loadCfgForm();
 }
 
 // ── ADMIN ──
 function populateAdmSelects(){
-  var opts=FLATS.map(function(f){ return '<option value="'+f.id+'">'+f.name+' \u00b7 '+f.floor+'</option>'; }).join('');
-  ['pay-flat','pen-flat','edit-flat-sel'].forEach(function(id){ var el=document.getElementById(id); if(el) el.innerHTML='<option value="">\u2014 Select Flat \u2014</option>'+opts; });
+  var opts=FLATS.map(function(f){return '<option value="'+f.id+'">'+f.name+' \u00b7 '+f.floor+'</option>';}).join('');
+  ['pay-flat','pen-flat','edit-flat-sel'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML='<option value="">\u2014 Select Flat \u2014</option>'+opts;});
   document.getElementById('pay-date').value=TODAY.toISOString().split('T')[0];
 }
 function recPayment(){
-  var fid=document.getElementById('pay-flat').value, amt=parseFloat(document.getElementById('pay-amt').value), date=document.getElementById('pay-date').value;
-  if(!fid){toast('\u26a0 Select a flat');return;} if(!amt||amt<1){toast('\u26a0 Enter valid amount');return;}
-  var c=getMD(viewMonth).contributions[fid];
-  var ep=getEffectivePenalty(fid,viewMonth); if(ep>(c.penalty||0)) c.penalty=ep;
-  c.paid+=amt; if(!c.payments) c.payments=[];
-  c.payments.push({amt:amt,date:date||TODAY.toISOString().split('T')[0]});
-  document.getElementById('pay-amt').value='';
-  saveSt(); renderAll(); toast('\u2705 Payment \u20b9'+amt+' recorded!');
+  var fid=document.getElementById('pay-flat').value,amt=parseFloat(document.getElementById('pay-amt').value),date=document.getElementById('pay-date').value;
+  if(!fid){toast('\u26a0 Select a flat');return;}if(!amt||amt<1){toast('\u26a0 Enter valid amount');return;}
+  var c=getMD(viewMonth).contributions[fid];var ep=getEffectivePenalty(fid,viewMonth);if(ep>(c.penalty||0))c.penalty=ep;
+  c.paid+=amt;if(!c.payments)c.payments=[];c.payments.push({amt:amt,date:date||TODAY.toISOString().split('T')[0]});
+  document.getElementById('pay-amt').value='';saveSt();renderAll();toast('\u2705 Payment \u20b9'+amt+' recorded!');
 }
 function quickPay(fid){
-  var bal=flatBal(fid,viewMonth); if(bal===0){toast('\u2139 Already fully paid');return;}
-  if(!confirm('Mark remaining \u20b9'+bal+' as paid for this flat?')) return;
-  var c=getMD(viewMonth).contributions[fid];
-  var ep=getEffectivePenalty(fid,viewMonth); if(ep>(c.penalty||0)) c.penalty=ep;
-  c.paid+=bal; if(!c.payments) c.payments=[];
-  c.payments.push({amt:bal,date:TODAY.toISOString().split('T')[0]});
-  saveSt(); renderAll(); toast('\u2705 Payment recorded!');
+  var bal=flatBal(fid,viewMonth);if(bal===0){toast('\u2139 Already fully paid');return;}
+  if(!confirm('Mark remaining \u20b9'+bal+' as paid?'))return;
+  var c=getMD(viewMonth).contributions[fid];var ep=getEffectivePenalty(fid,viewMonth);if(ep>(c.penalty||0))c.penalty=ep;
+  c.paid+=bal;if(!c.payments)c.payments=[];c.payments.push({amt:bal,date:TODAY.toISOString().split('T')[0]});
+  saveSt();renderAll();toast('\u2705 Payment recorded!');
 }
 function applyPenalty(){
-  var fid=document.getElementById('pen-flat').value, amt=parseFloat(document.getElementById('pen-amt').value);
-  if(!fid){toast('\u26a0 Select flat');return;} if(!amt||amt<1){toast('\u26a0 Enter amount');return;}
-  getMD(viewMonth).contributions[fid].penalty+=amt;
-  document.getElementById('pen-amt').value='';
-  saveSt(); renderAll(); toast('\u26a0 Penalty \u20b9'+amt+' applied');
+  var fid=document.getElementById('pen-flat').value,amt=parseFloat(document.getElementById('pen-amt').value);
+  if(!fid){toast('\u26a0 Select flat');return;}if(!amt||amt<1){toast('\u26a0 Enter amount');return;}
+  getMD(viewMonth).contributions[fid].penalty+=amt;document.getElementById('pen-amt').value='';
+  saveSt();renderAll();toast('\u26a0 Penalty \u20b9'+amt+' applied');
 }
 function doRollover(manual){
-  if(manual===undefined) manual=true;
-  var srcYM=viewMonth; if(manual&&!confirm('Start new month cycle from '+monthLabel(srcYM)+'?')) return;
-  var nxtYM=nextYM(srcYM), src=getMD(srcYM);
-  allData[nxtYM]={contributions:{},expenses:[]};
-  FLATS.forEach(function(f){
-    var carry=Math.max(0,flatDue(f.id,srcYM)-src.contributions[f.id].paid);
-    allData[nxtYM].contributions[f.id]={baseDue:autoBaseDue(nxtYM),paid:0,penalty:0,arrears:carry,payments:[]};
-  });
-  if(manual){ viewMonth=nxtYM; saveSt(); renderAll(); toast('\ud83d\udd04 New cycle: '+monthLabel(nxtYM)+'!'); } else { saveSt(); }
+  if(manual===undefined)manual=true;var srcYM=viewMonth;if(manual&&!confirm('Start new month cycle?'))return;
+  var nxtYM=nextYM(srcYM),src=getMD(srcYM);allData[nxtYM]={contributions:{},expenses:[]};
+  FLATS.forEach(function(f){var carry=Math.max(0,flatDue(f.id,srcYM)-src.contributions[f.id].paid);allData[nxtYM].contributions[f.id]={baseDue:autoBaseDue(nxtYM),paid:0,penalty:0,arrears:carry,payments:[]};});
+  if(manual){viewMonth=nxtYM;saveSt();renderAll();toast('\ud83d\udd04 New cycle: '+monthLabel(nxtYM)+'!');}else{saveSt();}
 }
 function changePin(){
-  var cur=document.getElementById('cur-pin').value, np=document.getElementById('new-pin').value, cp=document.getElementById('conf-pin').value;
-  if(cur!==adminPin){toast('\u274c Current PIN incorrect');return;}
-  if(!np||np.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}
-  if(np!==cp){toast('\u26a0 PINs do not match');return;}
-  adminPin=np; ['cur-pin','new-pin','conf-pin'].forEach(function(i){ document.getElementById(i).value=''; });
-  saveSt(); toast('\ud83d\udd11 PIN updated!');
+  var cur=document.getElementById('cur-pin').value,np=document.getElementById('new-pin').value,cp=document.getElementById('conf-pin').value;
+  if(cur!==adminPin){toast('\u274c Current PIN incorrect');return;}if(!np||np.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}if(np!==cp){toast('\u26a0 PINs do not match');return;}
+  adminPin=np;['cur-pin','new-pin','conf-pin'].forEach(function(i){document.getElementById(i).value='';});saveSt();toast('\ud83d\udd11 PIN updated!');
 }
 function resetAllFlats(){
-  if(!confirm('RESET ALL FLATS TO ZERO?\n\nDeletes ALL contribution and payment data for ALL flats across ALL months. Expenses preserved.')) return;
-  Object.keys(allData).forEach(function(ym){ allData[ym].contributions={}; });
-  saveSt(); renderAll(); toast('\ud83d\udd04 All flat data reset!');
+  if(!confirm('RESET ALL FLATS TO ZERO?\n\nDeletes ALL contribution and payment data.'))return;
+  Object.keys(allData).forEach(function(ym){allData[ym].contributions={};});saveSt();renderAll();toast('\ud83d\udd04 All flat data reset!');
 }
 function resetOneFlat(fid){
-  var f=FLATS.find(function(x){ return x.id===fid; });
-  if(!confirm('Reset '+f.name+' '+f.floor+' to zero?')) return;
-  getMD(viewMonth).contributions[fid]={baseDue:0,paid:0,penalty:0,arrears:0,payments:[]};
-  saveSt(); renderAll(); toast('\ud83d\udd04 Flat reset!');
+  var f=FLATS.find(function(x){return x.id===fid;});if(!confirm('Reset '+f.name+' '+f.floor+' to zero?'))return;
+  getMD(viewMonth).contributions[fid]={baseDue:0,paid:0,penalty:0,arrears:0,payments:[]};saveSt();renderAll();toast('\ud83d\udd04 Flat reset!');
 }
 function deleteAllExpenses(){
-  if(!confirm('Delete all expenses for '+monthLabel(viewMonth)+'?')) return;
-  var ids=new Set(expsForMonth(viewMonth).map(function(e){ return e.id; }));
-  Object.keys(allData).forEach(function(ym){ if(allData[ym].expenses) allData[ym].expenses=allData[ym].expenses.filter(function(e){ return !ids.has(e.id); }); });
-  saveSt(); renderAll(); toast('\ud83d\uddd1 Expenses deleted!');
+  if(!confirm('Delete all expenses for '+monthLabel(viewMonth)+'?'))return;
+  var ids=new Set(expsForMonth(viewMonth).map(function(e){return e.id;}));
+  Object.keys(allData).forEach(function(ym){if(allData[ym].expenses)allData[ym].expenses=allData[ym].expenses.filter(function(e){return !ids.has(e.id);});});
+  saveSt();renderAll();toast('\ud83d\uddd1 Expenses deleted!');
 }
-
 var editFlatId=null;
 function openFlatEdit(fid){
-  editFlatId=fid; var f=FLATS.find(function(x){ return x.id===fid; }), c=getMD(viewMonth).contributions[fid];
+  editFlatId=fid;var f=FLATS.find(function(x){return x.id===fid;}),c=getMD(viewMonth).contributions[fid];
   document.getElementById('fem-title').textContent='\u270f\ufe0f Edit \u2014 '+f.name+' '+f.floor;
   document.getElementById('fem-sub').textContent=f.block+' \u00b7 '+monthLabel(viewMonth);
-  document.getElementById('fem-base').value=c.baseDue; document.getElementById('fem-paid').value=c.paid;
-  document.getElementById('fem-pen').value=c.penalty; document.getElementById('fem-arr').value=c.arrears;
+  document.getElementById('fem-base').value=c.baseDue;document.getElementById('fem-paid').value=c.paid;
+  document.getElementById('fem-pen').value=c.penalty;document.getElementById('fem-arr').value=c.arrears;
   document.getElementById('flat-edit-modal').classList.remove('hidden');
 }
-function openFlatEditFromSel(){ var fid=document.getElementById('edit-flat-sel').value; if(!fid){toast('\u26a0 Select a flat');return;} openFlatEdit(fid); }
-function closeFlatEdit(){ document.getElementById('flat-edit-modal').classList.add('hidden'); editFlatId=null; }
+function openFlatEditFromSel(){var fid=document.getElementById('edit-flat-sel').value;if(!fid){toast('\u26a0 Select a flat');return;}openFlatEdit(fid);}
+function closeFlatEdit(){document.getElementById('flat-edit-modal').classList.add('hidden');editFlatId=null;}
 function saveFlatEdit(){
-  if(!editFlatId) return;
-  var base=parseFloat(document.getElementById('fem-base').value)||0, paid=parseFloat(document.getElementById('fem-paid').value)||0;
-  var pen=parseFloat(document.getElementById('fem-pen').value)||0, arr=parseFloat(document.getElementById('fem-arr').value)||0;
+  if(!editFlatId)return;
+  var base=parseFloat(document.getElementById('fem-base').value)||0,paid=parseFloat(document.getElementById('fem-paid').value)||0;
+  var pen=parseFloat(document.getElementById('fem-pen').value)||0,arr=parseFloat(document.getElementById('fem-arr').value)||0;
   if(base<0||paid<0||pen<0||arr<0){toast('\u26a0 No negative values');return;}
   var oldPaid=getMD(viewMonth).contributions[editFlatId].paid||0;
   getMD(viewMonth).contributions[editFlatId]={baseDue:base,paid:paid,penalty:pen,arrears:arr,payments:getMD(viewMonth).contributions[editFlatId].payments||[]};
-  if(paid!==oldPaid) syncPayments(editFlatId,viewMonth,paid);
-  closeFlatEdit(); saveSt(); renderAll(); toast('\u2705 Updated!');
+  if(paid!==oldPaid)syncPayments(editFlatId,viewMonth,paid);
+  closeFlatEdit();saveSt();renderAll();toast('\u2705 Updated!');
 }
 function resetFlatZero(){
-  if(!editFlatId) return;
-  if(!confirm('Reset to zero?')) return;
-  getMD(viewMonth).contributions[editFlatId]={baseDue:0,paid:0,penalty:0,arrears:0,payments:[]};
-  closeFlatEdit(); saveSt(); renderAll(); toast('\ud83d\udd04 Reset!');
+  if(!editFlatId)return;if(!confirm('Reset to zero?'))return;
+  getMD(viewMonth).contributions[editFlatId]={baseDue:0,paid:0,penalty:0,arrears:0,payments:[]};closeFlatEdit();saveSt();renderAll();toast('\ud83d\udd04 Reset!');
 }
-
-function openAddExp(){ document.getElementById('ae-date').value=TODAY.toISOString().split('T')[0]; document.getElementById('add-exp-modal').classList.remove('hidden'); }
-function closeAddExp(){ document.getElementById('add-exp-modal').classList.add('hidden'); }
+function openAddExp(){document.getElementById('ae-date').value=TODAY.toISOString().split('T')[0];document.getElementById('add-exp-modal').classList.remove('hidden');}
+function closeAddExp(){document.getElementById('add-exp-modal').classList.add('hidden');}
 function addExpense(){
-  var desc=document.getElementById('ae-desc').value.trim(), amt=parseFloat(document.getElementById('ae-amt').value);
-  var cat=document.getElementById('ae-cat').value, date=document.getElementById('ae-date').value, notes=document.getElementById('ae-notes').value.trim();
-  if(!desc){toast('\u26a0 Enter description');return;} if(!amt||amt<1){toast('\u26a0 Enter valid amount');return;} if(!date){toast('\u26a0 Enter date');return;}
-  var expYM=date.substring(0,7); ensureMonth(expYM);
-  allData[expYM].expenses.push({id:Date.now(),desc:desc,amount:amt,cat:cat,date:date,notes:notes});
-  closeAddExp(); ['ae-desc','ae-amt','ae-notes'].forEach(function(i){ document.getElementById(i).value=''; });
-  viewMonth=expYM; saveSt(); renderAll(); toast('\u2705 Expense added for '+monthLabel(expYM)+'!');
+  var desc=document.getElementById('ae-desc').value.trim(),amt=parseFloat(document.getElementById('ae-amt').value);
+  var cat=document.getElementById('ae-cat').value,date=document.getElementById('ae-date').value,notes=document.getElementById('ae-notes').value.trim();
+  if(!desc){toast('\u26a0 Enter description');return;}if(!amt||amt<1){toast('\u26a0 Enter valid amount');return;}if(!date){toast('\u26a0 Enter date');return;}
+  var expYM=date.substring(0,7);ensureMonth(expYM);allData[expYM].expenses.push({id:Date.now(),desc:desc,amount:amt,cat:cat,date:date,notes:notes});
+  closeAddExp();['ae-desc','ae-amt','ae-notes'].forEach(function(i){document.getElementById(i).value='';});
+  viewMonth=expYM;saveSt();renderAll();toast('\u2705 Expense added!');
 }
 function delExpense(id,srcYM){
-  if(!confirm('Delete this expense?')) return;
-  var ym=srcYM||viewMonth; if(allData[ym]) allData[ym].expenses=allData[ym].expenses.filter(function(e){ return e.id!==id; });
-  saveSt(); renderAll(); toast('\ud83d\uddd1 Deleted');
+  if(!confirm('Delete this expense?'))return;var ym=srcYM||viewMonth;
+  if(allData[ym])allData[ym].expenses=allData[ym].expenses.filter(function(e){return e.id!==id;});
+  saveSt();renderAll();toast('\ud83d\uddd1 Deleted');
 }
 function openEditExp(id,srcYM){
-  var ym=srcYM||viewMonth, e=(allData[ym]&&allData[ym].expenses||[]).find(function(x){ return x.id===id; });
+  var ym=srcYM||viewMonth,e=(allData[ym]&&allData[ym].expenses||[]).find(function(x){return x.id===id;});
   if(!e){toast('\u274c Not found');return;}
-  document.getElementById('ee-id').value=id; document.getElementById('ee-id').dataset.srcYm=ym;
-  document.getElementById('ee-desc').value=e.desc; document.getElementById('ee-amt').value=e.amount;
-  document.getElementById('ee-cat').value=e.cat; document.getElementById('ee-date').value=e.date;
-  document.getElementById('ee-notes').value=e.notes||'';
+  document.getElementById('ee-id').value=id;document.getElementById('ee-id').dataset.srcYm=ym;
+  document.getElementById('ee-desc').value=e.desc;document.getElementById('ee-amt').value=e.amount;
+  document.getElementById('ee-cat').value=e.cat;document.getElementById('ee-date').value=e.date;document.getElementById('ee-notes').value=e.notes||'';
   document.getElementById('edit-exp-modal').classList.remove('hidden');
 }
-function closeEditExp(){ document.getElementById('edit-exp-modal').classList.add('hidden'); }
+function closeEditExp(){document.getElementById('edit-exp-modal').classList.add('hidden');}
 function saveEditExp(){
-  var id=parseInt(document.getElementById('ee-id').value), srcYM=document.getElementById('ee-id').dataset.srcYm||viewMonth;
-  var desc=document.getElementById('ee-desc').value.trim(), amt=parseFloat(document.getElementById('ee-amt').value);
-  var cat=document.getElementById('ee-cat').value, date=document.getElementById('ee-date').value, notes=document.getElementById('ee-notes').value.trim();
-  if(!desc){toast('\u26a0 Enter description');return;} if(!amt||amt<1){toast('\u26a0 Enter valid amount');return;}
+  var id=parseInt(document.getElementById('ee-id').value),srcYM=document.getElementById('ee-id').dataset.srcYm||viewMonth;
+  var desc=document.getElementById('ee-desc').value.trim(),amt=parseFloat(document.getElementById('ee-amt').value);
+  var cat=document.getElementById('ee-cat').value,date=document.getElementById('ee-date').value,notes=document.getElementById('ee-notes').value.trim();
+  if(!desc){toast('\u26a0 Enter description');return;}if(!amt||amt<1){toast('\u26a0 Enter valid amount');return;}
   var newYM=date.substring(0,7);
-  if(newYM!==srcYM){
-    if(allData[srcYM]) allData[srcYM].expenses=allData[srcYM].expenses.filter(function(e){ return e.id!==id; });
-    ensureMonth(newYM); allData[newYM].expenses.push({id:id,desc:desc,amount:amt,cat:cat,date:date,notes:notes});
-    viewMonth=newYM; toast('\u2705 Expense moved!');
-  } else {
-    var idx=(allData[srcYM]&&allData[srcYM].expenses||[]).findIndex(function(x){ return x.id===id; });
-    if(idx===-1){toast('\u274c Not found');return;}
-    allData[srcYM].expenses[idx]={id:id,desc:desc,amount:amt,cat:cat,date:date,notes:notes};
-    toast('\u2705 Expense updated!');
-  }
-  closeEditExp(); saveSt(); renderAll();
+  if(newYM!==srcYM){if(allData[srcYM])allData[srcYM].expenses=allData[srcYM].expenses.filter(function(e){return e.id!==id;});ensureMonth(newYM);allData[newYM].expenses.push({id:id,desc:desc,amount:amt,cat:cat,date:date,notes:notes});viewMonth=newYM;toast('\u2705 Expense moved!');}
+  else{var idx=(allData[srcYM]&&allData[srcYM].expenses||[]).findIndex(function(x){return x.id===id;});if(idx===-1){toast('\u274c Not found');return;}allData[srcYM].expenses[idx]={id:id,desc:desc,amount:amt,cat:cat,date:date,notes:notes};toast('\u2705 Expense updated!');}
+  closeEditExp();saveSt();renderAll();
 }
 
-// ── SETTINGS (including flat name editing) ──
-function loadCfgForm(){
-  function sv(id,v){ var el=document.getElementById(id); if(el) el.value=v; }
-  sv('cfg-base',cfg.baseAmount); sv('cfg-start-month',cfg.cycleStartMonth); sv('cfg-start-year',cfg.cycleStartYear);
-  sv('cfg-start',cfg.startDay); sv('cfg-warn',cfg.warnDay); sv('cfg-pday',cfg.penaltyDay); sv('cfg-uday',cfg.updateDay);
-  sv('cfg-pamt',cfg.penaltyAmt); sv('cfg-cdays',cfg.compoundDays);
-  sv('cfg-upi',cfg.upiId); sv('cfg-acn',cfg.acName); sv('cfg-soc',cfg.socName);
-  renderFlatNameEditors();
-  updateCfgPreview();
-  ['cfg-base','cfg-start-month','cfg-start-year','cfg-start','cfg-warn','cfg-pday','cfg-uday','cfg-pamt','cfg-cdays'].forEach(function(id){ var el=document.getElementById(id); if(el) el.oninput=updateCfgPreview; });
-  refreshQRPreview();
-}
-
-// Render editable flat name rows inside #flat-names-container
+// ── SETTINGS ──
 function renderFlatNameEditors(){
-  var container=document.getElementById('flat-names-container'); if(!container) return;
+  var container=document.getElementById('flat-names-container');if(!container)return;
   var html='';
   FLATS.forEach(function(f){
     html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px;padding:8px 10px;background:var(--cream-dk);border-radius:var(--rsm)">'
-      +'<input type="text" class="fi" style="font-size:13px" placeholder="Flat name" value="'+escHtml(f.name)+'" id="fn-name-'+f.id+'" onchange="previewFlatName(\''+f.id+'\')">'
-      +'<input type="text" class="fi" style="font-size:13px" placeholder="Floor" value="'+escHtml(f.floor)+'" id="fn-floor-'+f.id+'" onchange="previewFlatName(\''+f.id+'\')">'
-      +'<input type="text" class="fi" style="font-size:13px" placeholder="Block" value="'+escHtml(f.block)+'" id="fn-block-'+f.id+'" onchange="previewFlatName(\''+f.id+'\')">'
-      +'<div style="font-size:11px;color:var(--ink-mu);text-align:center;min-width:32px">'+f.emoji+'</div>'
-      +'</div>';
+      +'<input type="text" class="fi" style="font-size:13px" placeholder="Flat name" value="'+f.name.replace(/"/g,'&quot;')+'" id="fn-name-'+f.id+'">'
+      +'<input type="text" class="fi" style="font-size:13px" placeholder="Floor" value="'+f.floor.replace(/"/g,'&quot;')+'" id="fn-floor-'+f.id+'">'
+      +'<input type="text" class="fi" style="font-size:13px" placeholder="Block" value="'+f.block.replace(/"/g,'&quot;')+'" id="fn-block-'+f.id+'">'
+      +'<div style="font-size:18px;text-align:center">\ud83c\udfe0</div></div>';
   });
   container.innerHTML=html;
 }
-function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
-function previewFlatName(fid){
-  var nm=document.getElementById('fn-name-'+fid), fl=document.getElementById('fn-floor-'+fid), bl=document.getElementById('fn-block-'+fid);
-  if(!nm) return;
-  var f=FLATS.find(function(x){ return x.id===fid; }); if(!f) return;
-  // Preview immediately (no save yet)
-  if(nm.value.trim()) f.name  = nm.value.trim();
-  if(fl.value.trim()) f.floor = fl.value.trim();
-  if(bl.value.trim()) f.block = bl.value.trim();
-}
 function saveFlatNames(){
-  if(!cfg.flatNames) cfg.flatNames={};
+  if(!cfg.flatNames)cfg.flatNames={};
   FLATS.forEach(function(f){
-    var nm=document.getElementById('fn-name-'+f.id), fl=document.getElementById('fn-floor-'+f.id), bl=document.getElementById('fn-block-'+f.id);
-    if(!nm) return;
-    var newName=nm.value.trim()||f.name, newFloor=fl.value.trim()||f.floor, newBlock=bl.value.trim()||f.block;
-    f.name=newName; f.floor=newFloor; f.block=newBlock;
-    cfg.flatNames[f.id]={name:newName,floor:newFloor,block:newBlock};
+    var nm=document.getElementById('fn-name-'+f.id),fl=document.getElementById('fn-floor-'+f.id),bl=document.getElementById('fn-block-'+f.id);if(!nm)return;
+    f.name=nm.value.trim()||f.name;f.floor=fl.value.trim()||f.floor;f.block=bl.value.trim()||f.block;
+    cfg.flatNames[f.id]={name:f.name,floor:f.floor,block:f.block};
   });
-  // Refresh login dropdown and admin selects with new names
-  refreshLoginDropdown();
-  if(isAdmin) populateAdmSelects();
+  refreshLoginDropdown();if(isAdmin)populateAdmSelects();
 }
-
+function loadCfgForm(){
+  function sv(id,v){var el=document.getElementById(id);if(el)el.value=v;}
+  sv('cfg-base',cfg.baseAmount);sv('cfg-start-month',cfg.cycleStartMonth);sv('cfg-start-year',cfg.cycleStartYear);
+  sv('cfg-start',cfg.startDay);sv('cfg-warn',cfg.warnDay);sv('cfg-pday',cfg.penaltyDay);sv('cfg-uday',cfg.updateDay);
+  sv('cfg-pamt',cfg.penaltyAmt);sv('cfg-cdays',cfg.compoundDays);sv('cfg-upi',cfg.upiId);sv('cfg-acn',cfg.acName);sv('cfg-soc',cfg.socName);
+  renderFlatNameEditors();loadCloudCfgForm();updateCfgPreview();
+  ['cfg-base','cfg-start-month','cfg-start-year','cfg-start','cfg-warn','cfg-pday','cfg-uday','cfg-pamt','cfg-cdays'].forEach(function(id){var el=document.getElementById(id);if(el)el.oninput=updateCfgPreview;});
+  refreshQRPreview();
+}
+function loadCloudCfgForm(){
+  // Pre-fill with hardcoded config if available, otherwise use saved
+  var hc=window.HARDCODED_FB_CFG;
+  var prefill=(window.FB_AUTO_CONNECT&&hc&&hc.apiKey&&hc.apiKey!=='YOUR_API_KEY')?hc:getSavedFbCfg();
+  var saved=prefill;if(!saved)return;
+  ['apiKey','authDomain','projectId','storageBucket','messagingSenderId','appId'].forEach(function(k){var el=document.getElementById('fb-'+k);if(el&&saved[k])el.value=saved[k];});
+  if(cloudEnabled){var btn=document.getElementById('cloud-connect-btn');if(btn){btn.textContent='\u2601\ufe0f Connected \u2014 Reconnect';btn.style.background='var(--green)';}}
+}
 function updateCfgPreview(){
-  function gv(id){ var el=document.getElementById(id); return el?parseInt(el.value)||0:0; }
-  var ba=gv('cfg-base')||cfg.baseAmount, cm=gv('cfg-start-month')||cfg.cycleStartMonth, cy=gv('cfg-start-year')||cfg.cycleStartYear;
-  var sd=gv('cfg-start')||cfg.startDay, wd=gv('cfg-warn')||cfg.warnDay, pd=gv('cfg-pday')||cfg.penaltyDay;
-  var ud=gv('cfg-uday')||cfg.updateDay, pa=gv('cfg-pamt')||cfg.penaltyAmt, cd=gv('cfg-cdays')||cfg.compoundDays;
+  function gv(id){var el=document.getElementById(id);return el?parseInt(el.value)||0:0;}
+  var ba=gv('cfg-base')||cfg.baseAmount,cm=gv('cfg-start-month')||cfg.cycleStartMonth,cy=gv('cfg-start-year')||cfg.cycleStartYear;
+  var sd=gv('cfg-start')||cfg.startDay,wd=gv('cfg-warn')||cfg.warnDay,pd=gv('cfg-pday')||cfg.penaltyDay;
+  var pa=gv('cfg-pamt')||cfg.penaltyAmt,cd=gv('cfg-cdays')||cfg.compoundDays,ud=gv('cfg-uday')||cfg.updateDay;
   var el=document.getElementById('cfg-prev');
-  if(el) el.innerHTML='<strong>📋 Preview:</strong><br>'
-    +'\ud83d\uddd3 Navigation: Oct 2025 \u2192 present<br>'
-    +'\u2705 From <strong>'+MONTHS[cm-1]+' '+cy+'</strong>: \u20b9<strong>'+ba+'</strong> due on '+ord(sd)+'<br>'
-    +'\ud83d\udfe1 After '+ord(wd)+': Warning alert<br>'
-    +'\ud83d\udd34 After '+ord(pd)+': \u20b9<strong>'+pa+'</strong>/day penalty (every '+cd+' day(s))<br>'
-    +'\ud83d\udd04 On '+ord(ud)+': New cycle resets';
+  if(el)el.innerHTML='\u2705 From <strong>'+MONTHS[cm-1]+' '+cy+'</strong>: \u20b9<strong>'+ba+'</strong> due on '+ord(sd)+' | \ud83d\udfe1 Warning '+ord(wd)+' | \ud83d\udd34 Penalty \u20b9'+pa+'/day from '+ord(pd)+' | \ud83d\udd04 Reset '+ord(ud);
 }
 function saveSettings(){
-  function gi(id){ return document.getElementById(id); }
-  function gv(id){ return parseInt(gi(id)&&gi(id).value)||0; }
-  var ba=gv('cfg-base'), cm=gv('cfg-start-month'), cy=gv('cfg-start-year');
-  var sd=gv('cfg-start'), wd=gv('cfg-warn'), pd=gv('cfg-pday'), ud=gv('cfg-uday'), pa=gv('cfg-pamt'), cd=gv('cfg-cdays');
-  var upi=gi('cfg-upi')&&gi('cfg-upi').value.trim()||'', acn=gi('cfg-acn')&&gi('cfg-acn').value.trim()||'', soc=gi('cfg-soc')&&gi('cfg-soc').value.trim()||'Society 406';
-  if(!ba||ba<100){toast('\u26a0 Min \u20b9100');return;} if(!cm||cm<1||cm>12){toast('\u26a0 Month 1-12');return;} if(!cy||cy<2025||cy>2099){toast('\u26a0 Valid year');return;}
-  if(!sd||sd<1||sd>28){toast('\u26a0 Start day 1-28');return;} if(!wd||wd<=sd){toast('\u26a0 Warning day > start day');return;}
-  if(!pd||pd<=wd){toast('\u26a0 Penalty day > warning day');return;} if(!ud||ud<1||ud>28){toast('\u26a0 Update day 1-28');return;}
-  if(pa<0){toast('\u26a0 Penalty >= 0');return;} if(!cd||cd<1){toast('\u26a0 Compound days >= 1');return;}
-  // Save flat names first
+  function gi(id){return document.getElementById(id);}function gv(id){return parseInt(gi(id)&&gi(id).value)||0;}
+  var ba=gv('cfg-base'),cm=gv('cfg-start-month'),cy=gv('cfg-start-year'),sd=gv('cfg-start'),wd=gv('cfg-warn'),pd=gv('cfg-pday'),ud=gv('cfg-uday'),pa=gv('cfg-pamt'),cd=gv('cfg-cdays');
+  var upi=gi('cfg-upi')&&gi('cfg-upi').value.trim()||'',acn=gi('cfg-acn')&&gi('cfg-acn').value.trim()||'',soc=gi('cfg-soc')&&gi('cfg-soc').value.trim()||'Society 406';
+  if(!ba||ba<100){toast('\u26a0 Min \u20b9100');return;}if(!cm||cm<1||cm>12){toast('\u26a0 Month 1-12');return;}if(!cy||cy<2025||cy>2099){toast('\u26a0 Valid year');return;}
+  if(!sd||sd<1||sd>28){toast('\u26a0 Start day 1-28');return;}if(!wd||wd<=sd){toast('\u26a0 Warning > start');return;}if(!pd||pd<=wd){toast('\u26a0 Penalty > warning');return;}
+  if(!ud||ud<1||ud>28){toast('\u26a0 Update day 1-28');return;}if(pa<0){toast('\u26a0 Penalty >= 0');return;}if(!cd||cd<1){toast('\u26a0 Compound >= 1');return;}
   saveFlatNames();
   cfg=Object.assign({},cfg,{baseAmount:ba,cycleStartMonth:cm,cycleStartYear:cy,penaltyStartMonth:cm,penaltyStartYear:cy,startDay:sd,warnDay:wd,penaltyDay:pd,updateDay:ud,penaltyAmt:pa,compoundDays:cd,upiId:upi,acName:acn,socName:soc});
   var cs=contribStartYM();
-  Object.keys(allData).forEach(function(ym){
-    if(ym<TODAY_YM) return; // preserve past months
-    FLATS.forEach(function(f){ if(allData[ym].contributions[f.id]) allData[ym].contributions[f.id].baseDue=ym<cs?0:ba; });
-  });
-  if(viewMonth<NAV_START) viewMonth=NAV_START;
-  saveSt(); try{ renderAll(); } catch(e){ console.error(e); }
-  toast('\u2705 Settings saved! Flat names, amounts, and rules updated everywhere.');
+  Object.keys(allData).forEach(function(ym){if(ym<TODAY_YM)return;FLATS.forEach(function(f){if(allData[ym].contributions[f.id])allData[ym].contributions[f.id].baseDue=ym<cs?0:ba;});});
+  if(viewMonth<NAV_START)viewMonth=NAV_START;
+  saveSt();try{renderAll();}catch(e){console.error(e);}toast('\u2705 Settings saved and synced to all devices!');
 }
-function loadSettingsForm(){ loadCfgForm(); }
-
-function handleQR(event){
-  var file=event.target.files[0]; if(!file) return; if(file.size>5*1024*1024){toast('\u26a0 Max 5MB');return;}
-  var reader=new FileReader(); reader.onload=function(e){ cfg.qrData=e.target.result; refreshQRPreview(); renderPayPage(); saveSt(); toast('\u2705 QR uploaded!'); }; reader.readAsDataURL(file);
+function connectCloud(){
+  // If hardcoded config is set and valid, use it directly
+  var hc=window.HARDCODED_FB_CFG;
+  if(window.FB_AUTO_CONNECT&&hc&&hc.apiKey&&hc.apiKey!=='YOUR_API_KEY'){
+    saveFbCfgLocal(hc);var ok=initCloud(hc);
+    if(ok)toast('☁️ Connected to Firebase!'); return;
+  }
+  // Otherwise read from Settings form inputs (original behavior):
+  var fbCfg={apiKey:document.getElementById('fb-apiKey').value.trim(),authDomain:document.getElementById('fb-authDomain').value.trim(),projectId:document.getElementById('fb-projectId').value.trim(),storageBucket:document.getElementById('fb-storageBucket').value.trim(),messagingSenderId:document.getElementById('fb-messagingSenderId').value.trim(),appId:document.getElementById('fb-appId').value.trim()};
+  if(!fbCfg.apiKey||!fbCfg.projectId){toast('\u26a0 Enter API Key and Project ID');return;}
+  saveFbCfgLocal(fbCfg);var ok=initCloud(fbCfg);
+  if(ok){toast('\u2705 Connected! All changes sync across all devices.');var btn=document.getElementById('cloud-connect-btn');if(btn){btn.textContent='\u2601\ufe0f Connected \u2014 Reconnect';btn.style.background='var(--green)';}}
 }
+function disconnectCloud(){
+  if(!confirm('Disconnect from cloud?'))return;if(cloudUnsub)cloudUnsub();db=null;cloudEnabled=false;
+  localStorage.removeItem(FB_KEY);setSyncBadge('off');toast('\ud83d\udcbe Disconnected. Saving locally.');
+  var btn=document.getElementById('cloud-connect-btn');if(btn){btn.textContent='Connect to Cloud';btn.style.background='';}
+}
+function handleQR(event){var file=event.target.files[0];if(!file)return;if(file.size>5*1024*1024){toast('\u26a0 Max 5MB');return;}var reader=new FileReader();reader.onload=function(e){cfg.qrData=e.target.result;refreshQRPreview();renderPayPage();saveSt();toast('\u2705 QR uploaded!');};reader.readAsDataURL(file);}
 function refreshQRPreview(){
-  var wrap=document.getElementById('qr-preview-wrap'), prev=document.getElementById('qr-preview');
-  if(cfg.qrData){ prev.src=cfg.qrData; wrap.style.display='block'; document.getElementById('qup-ico').textContent='\u2705'; document.getElementById('qup-txt').innerHTML='<strong style="color:var(--green)">QR uploaded!</strong><br><span style="font-size:12px;color:var(--ink-mu)">Click to replace</span>'; }
-  else { wrap.style.display='none'; document.getElementById('qup-ico').textContent='📷'; document.getElementById('qup-txt').innerHTML='<strong>Click to upload QR Code image</strong><br>JPG, PNG \u00b7 Max 5MB'; }
+  var wrap=document.getElementById('qr-preview-wrap'),prev=document.getElementById('qr-preview');
+  if(cfg.qrData){prev.src=cfg.qrData;wrap.style.display='block';document.getElementById('qup-ico').textContent='\u2705';document.getElementById('qup-txt').innerHTML='<strong style="color:var(--green)">QR uploaded!</strong><br><span style="font-size:12px;color:var(--ink-mu)">Click to replace</span>';}
+  else{wrap.style.display='none';document.getElementById('qup-ico').textContent='\ud83d\udcf7';document.getElementById('qup-txt').innerHTML='<strong>Click to upload QR Code image</strong><br>JPG, PNG \u00b7 Max 5MB';}
 }
-function removeQR(){ if(!confirm('Remove QR?')) return; cfg.qrData=null; document.getElementById('qr-file').value=''; refreshQRPreview(); renderPayPage(); saveSt(); toast('\ud83d\uddd1 QR removed'); }
-function openQRLightbox(){
-  var lb=document.getElementById('qr-lightbox'); if(!lb) return;
-  var li=document.getElementById('lb-qimg'), lp=document.getElementById('lb-qph');
-  if(cfg.qrData){ li.src=cfg.qrData; li.style.display='block'; lp.style.display='none'; } else { li.style.display='none'; lp.style.display='block'; }
-  var lu=document.getElementById('lb-upi'); if(lu) lu.textContent=cfg.upiId?'UPI: '+cfg.upiId:'';
-  var la=document.getElementById('lb-amt'); if(la) la.textContent=cfg.baseAmount?'\u20b9'+cfg.baseAmount:'';
-  lb.style.display='flex';
-}
-function closeQRLightbox(){ var lb=document.getElementById('qr-lightbox'); if(lb) lb.style.display='none'; }
+function removeQR(){if(!confirm('Remove QR?'))return;cfg.qrData=null;document.getElementById('qr-file').value='';refreshQRPreview();renderPayPage();saveSt();toast('\ud83d\uddd1 QR removed');}
+function openQRLightbox(){var lb=document.getElementById('qr-lightbox');if(!lb)return;var li=document.getElementById('lb-qimg'),lp=document.getElementById('lb-qph');if(cfg.qrData){li.src=cfg.qrData;li.style.display='block';lp.style.display='none';}else{li.style.display='none';lp.style.display='block';}var lu=document.getElementById('lb-upi');if(lu)lu.textContent=cfg.upiId?'UPI: '+cfg.upiId:'';var la=document.getElementById('lb-amt');if(la)la.textContent=cfg.baseAmount?'\u20b9'+cfg.baseAmount:'';lb.style.display='flex';}
+function closeQRLightbox(){var lb=document.getElementById('qr-lightbox');if(lb)lb.style.display='none';}
 
-// ── EXCEL DOWNLOAD ──
+// ── EXCEL DOWNLOAD (2 sheets with ExcelJS colours) ──
 function downloadExcel(){
-  var rows=[], toYM=TODAY_YM, genDate=TODAY.toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
-  rows.push(['Society 406 - Complete Report']); rows.push(['Generated: '+genDate,'','Period: Oct 2025 - '+monthLabel(toYM)]); rows.push([]);
-  rows.push(['=== CONTRIBUTIONS - MONTH-WISE ===']); rows.push([]);
-  var cur=NAV_START;
-  while(cur<=toYM){
-    rows.push(['-- '+monthLabel(cur)+' --']);
-    rows.push(['Flat','Floor','Block','Base Due','Penalty','Total Due','Paid','Balance','Status','Payment Date(s)','Payment Amount(s)']);
-    FLATS.forEach(function(f){
-      var md=getMD(cur), cc=md.contributions[f.id];
-      var bd=cc.baseDue, pen=getEffectivePenalty(f.id,cur), arr=cc.arrears||0, paid=cc.paid, due=bd+pen+arr, bal=Math.max(0,due-paid);
-      var sLabel={paid:'Paid',warn:'Due Soon',danger:'Overdue',ok:'Pending'}[getStatus(f.id,cur)]||'';
-      var ap=cc.paid||0, ps=(cc.payments||[]).reduce(function(s,p){ return s+(p.amt||0); },0);
-      var payDates='-', payAmts='-';
-      if(ap>0){
-        if(cc.payments&&cc.payments.length&&Math.abs(ps-ap)<0.01){ payDates=cc.payments.map(function(p){ return p.date||monthLabel(cur); }).join(' | '); payAmts=cc.payments.map(function(p){ return 'Rs.'+p.amt; }).join(' | '); }
-        else { payDates=monthLabel(cur); payAmts='Rs.'+ap; }
-      }
-      rows.push([f.name,f.floor,f.block,bd,pen,due,paid,bal,sLabel,payDates,payAmts]);
+  // Report month picker — use a prompt dialog for simplicity
+  var selM=+viewMonth.split('-')[1],selY=+viewMonth.split('-')[0];
+  var reportYM=prompt('Enter month for Sheet 1 (YYYY-MM), e.g. '+TODAY_YM,viewMonth)||viewMonth;
+  if(!/^\d{4}-\d{2}$/.test(reportYM)){reportYM=viewMonth;}
+
+  if(typeof ExcelJS==='undefined'){toast('\u26a0 ExcelJS loading\u2026 try again in a moment.');return;}
+  var wb=new ExcelJS.Workbook();
+  wb.creator='Society 406 Manager';wb.created=new Date();
+
+  // ── COLOUR PALETTE ──
+  var C={
+    HDR_DARK:'1a1a2e',HDR_DARK_FG:'FFFFFF',
+    HDR_TEAL:'0d7377',HDR_TEAL_FG:'FFFFFF',
+    HDR_GREEN:'2d7a4f',HDR_GREEN_FG:'FFFFFF',
+    HDR_RED:'b02020',HDR_RED_FG:'FFFFFF',
+    GREEN_LT:'e0f5ea',RED_LT:'fde8e8',AMBER_LT:'fff3dc',
+    CREAM:'faf9f6',CREAM_DK:'f0ede6',PAID:'d4edda',PEND:'fff3cd',OVD:'f8d7da',
+    GREY:'6c757d',WHITE:'FFFFFF'
+  };
+  function hdrFont(color){return {name:'Calibri',bold:true,size:11,color:{argb:'FF'+color}};}
+  function fill(hex){return {type:'pattern',pattern:'solid',fgColor:{argb:'FF'+hex}};}
+  function border(){return {top:{style:'thin',color:{argb:'FFDDDDDD'}},bottom:{style:'thin',color:{argb:'FFDDDDDD'}},left:{style:'thin',color:{argb:'FFDDDDDD'}},right:{style:'thin',color:{argb:'FFDDDDDD'}}};}
+  function applyRow(row,fillHex,bold){
+    row.eachCell(function(cell){
+      if(fillHex)cell.fill=fill(fillHex);
+      cell.border=border();
+      if(bold)cell.font=Object.assign({},cell.font||{},{bold:true,name:'Calibri',size:10});
+      else if(!cell.font||!cell.font.bold){cell.font={name:'Calibri',size:10};}
+      cell.alignment={vertical:'middle',wrapText:true};
     });
-    var mCol=0, mPend=0;
-    FLATS.forEach(function(f){ var cc=allData[cur]&&allData[cur].contributions[f.id]; if(cc){ mCol+=cc.paid||0; mPend+=flatBal(f.id,cur); } });
-    rows.push(['','','MONTH TOTAL','','','',mCol,mPend,'','','']); rows.push([]);
-    cur=nextYM(cur);
   }
-  rows.push(['=== EXPENSES - MONTH-WISE ===']); rows.push([]);
-  cur=NAV_START;
-  while(cur<=toYM){
-    var mExps=expsForMonth(cur);
-    if(mExps.length){
-      rows.push(['-- '+monthLabel(cur)+' --']); rows.push(['Date','Description','Category','Amount (Rs.)','Notes']);
-      mExps.forEach(function(e){ var ds=new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}); rows.push([ds,e.desc,e.cat.replace(/[^a-zA-Z0-9 ]/g,''),e.amount,e.notes||'']); });
-      rows.push(['','MONTH TOTAL','',''+mExps.reduce(function(s,e){ return s+e.amount; },0),'']); rows.push([]);
+  function mergeTitle(ws,text,cols,fillHex,fgHex){
+    var r=ws.addRow([text]);for(var i=2;i<=cols;i++)r.getCell(i).value=null;
+    ws.mergeCells(r.number,1,r.number,cols);
+    r.getCell(1).font=hdrFont(fgHex||C.HDR_DARK_FG);r.getCell(1).fill=fill(fillHex||C.HDR_DARK);
+    r.getCell(1).alignment={horizontal:'center',vertical:'middle'};r.getCell(1).border=border();
+    r.height=22;return r;
+  }
+
+  // ════════════════════════════════════════
+  // SHEET 1: MONTHLY REPORT (selected month)
+  // ════════════════════════════════════════
+  var ws1=wb.addWorksheet('Monthly Report - '+monthLabel(reportYM),{
+    pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1}
+  });
+  ws1.columns=[{width:22},{width:14},{width:14},{width:14},{width:14},{width:14},{width:14},{width:14},{width:14},{width:20},{width:22}];
+
+  // Title
+  mergeTitle(ws1,'Society 406 — Monthly Report: '+monthLabel(reportYM),11,C.HDR_DARK);
+  ws1.addRow([]);
+
+  // ── SUMMARY ──
+  mergeTitle(ws1,'📊 SUMMARY',11,C.HDR_TEAL);
+  var sumData=[
+    ['Total Contributions Collected','Rs.'+totCollected(reportYM)],
+    ['Total Expenses Paid','Rs.'+totSpent(reportYM)],
+    ['Society Balance (Collected - Spent)','Rs.'+(totCollected(reportYM)-totSpent(reportYM))],
+    ['Pending Dues','Rs.'+totPending(reportYM)],
+    ['Flats Cleared',paidCnt(reportYM)+' / 7']
+  ];
+  sumData.forEach(function(sd){
+    var r=ws1.addRow(sd);
+    r.getCell(1).font={bold:true,name:'Calibri',size:10};r.getCell(2).font={name:'Calibri',size:10};
+    r.getCell(1).fill=fill(C.CREAM_DK);r.getCell(2).fill=fill(C.CREAM);
+    r.eachCell(function(c){c.border=border();c.alignment={vertical:'middle'};});
+    r.height=18;
+  });
+  ws1.addRow([]);
+
+  // ── CONTRIBUTION SUMMARY ──
+  mergeTitle(ws1,'💰 CONTRIBUTION SUMMARY — '+monthLabel(reportYM),11,C.HDR_GREEN);
+  var hdrRow1=ws1.addRow(['Flat','Floor','Block','Base Due','Penalty','Total Due','Paid','Balance','Status','Payment Date(s)','Payment Amount(s)']);
+  hdrRow1.height=20;applyRow(hdrRow1,C.HDR_GREEN,true);
+  hdrRow1.eachCell(function(c){c.font=hdrFont(C.HDR_GREEN_FG);c.alignment={horizontal:'center',vertical:'middle',wrapText:true};});
+
+  FLATS.forEach(function(f){
+    var bd=cumBaseDue(f.id,reportYM),pen=cumPenalty(f.id,reportYM),paid=cumPaid(f.id,reportYM),due=bd+pen,bal=Math.max(0,due-paid);
+    var s=getStatus(f.id,reportYM),sLabel={paid:'Paid',warn:'Due Soon',danger:'Overdue',ok:'Pending'}[s]||'';
+    var cc=allData[reportYM]&&allData[reportYM].contributions[f.id];
+    var ap=cc?cc.paid||0:0,ps=cc?(cc.payments||[]).reduce(function(s,p){return s+(p.amt||0);},0):0;
+    var payDates='-',payAmts='-';
+    if(ap>0){if(cc&&cc.payments&&cc.payments.length&&Math.abs(ps-ap)<0.01){payDates=cc.payments.map(function(p){return p.date||monthLabel(reportYM);}).join('\n');payAmts=cc.payments.map(function(p){return 'Rs.'+p.amt;}).join('\n');}else{payDates=monthLabel(reportYM);payAmts='Rs.'+ap;}}
+    var row=ws1.addRow([f.name,f.floor,f.block,bd,pen,due,paid,bal,sLabel,payDates,payAmts]);
+    row.height=18;
+    var rowFill=s==='paid'?C.PAID:s==='danger'?C.OVD:s==='warn'?C.PEND:C.WHITE;
+    applyRow(row,rowFill,false);
+    row.getCell(6).font={bold:true,name:'Calibri',size:10};
+    row.getCell(8).font={bold:true,name:'Calibri',size:10,color:{argb:'FF'+(bal>0?C.HDR_RED:C.HDR_GREEN)}};
+    [4,5,6,7,8].forEach(function(ci){row.getCell(ci).alignment={horizontal:'right',vertical:'middle'};});
+  });
+  // Totals row
+  var totalRow1=ws1.addRow(['TOTAL','','',cumBaseDue('406A-GF',reportYM)+cumBaseDue('406A-FF',reportYM)+cumBaseDue('406A-SF',reportYM)+cumBaseDue('406B-GF',reportYM)+cumBaseDue('406B-FF',reportYM)+cumBaseDue('406B-SF',reportYM)+cumBaseDue('AHUJA',reportYM),'','',totCollected(reportYM),totPending(reportYM),'','','']);
+  applyRow(totalRow1,C.CREAM_DK,true);totalRow1.height=20;
+  ws1.addRow([]);
+
+  // ── PAYMENT TRANSACTIONS ──
+  mergeTitle(ws1,'📅 PAYMENT TRANSACTIONS — '+monthLabel(reportYM),11,C.HDR_TEAL);
+  var ptHdr=ws1.addRow(['Flat','Floor','Payment Date','Amount (Rs.)','Note']);
+  applyRow(ptHdr,C.HDR_TEAL,true);ptHdr.eachCell(function(c){c.font=hdrFont(C.HDR_TEAL_FG);c.alignment={horizontal:'center',vertical:'middle'};});ptHdr.height=20;
+  var hasPayments=false;
+  FLATS.forEach(function(f){
+    var cc=allData[reportYM]&&allData[reportYM].contributions[f.id];
+    if(!cc||!cc.paid)return;
+    if(cc.payments&&cc.payments.length>0){
+      cc.payments.forEach(function(p){
+        var r=ws1.addRow([f.name,f.floor,p.date||monthLabel(reportYM),'Rs.'+p.amt,p.note||'']);
+        applyRow(r,C.GREEN_LT,false);r.height=18;r.getCell(4).alignment={horizontal:'right',vertical:'middle'};hasPayments=true;
+      });
+    }else{
+      var r=ws1.addRow([f.name,f.floor,monthLabel(reportYM),'Rs.'+cc.paid,'']);
+      applyRow(r,C.GREEN_LT,false);r.height=18;r.getCell(4).alignment={horizontal:'right',vertical:'middle'};hasPayments=true;
     }
-    cur=nextYM(cur);
+  });
+  if(!hasPayments){var nr=ws1.addRow(['No payments recorded for '+monthLabel(reportYM)]);applyRow(nr,C.CREAM,false);}
+  ws1.addRow([]);
+
+  // ── EXPENSE DETAILS ──
+  mergeTitle(ws1,'🧾 EXPENSE DETAILS — '+monthLabel(reportYM),11,C.HDR_RED);
+  var exHdr=ws1.addRow(['Date','Description','Category','Amount (Rs.)','Notes']);
+  applyRow(exHdr,C.HDR_RED,true);exHdr.eachCell(function(c){c.font=hdrFont(C.HDR_RED_FG);c.alignment={horizontal:'center',vertical:'middle'};});exHdr.height=20;
+  var mExps=expsForMonth(reportYM);
+  if(mExps.length){
+    mExps.forEach(function(e){
+      var ds=new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+      var r=ws1.addRow([ds,e.desc,e.cat.replace(/[^\w\s]/g,''),'Rs.'+e.amount,e.notes||'']);
+      var bg=CAT_BG[e.cat]?CAT_BG[e.cat].replace('#',''):C.AMBER_LT;
+      applyRow(r,bg,false);r.height=18;r.getCell(4).alignment={horizontal:'right',vertical:'middle'};
+    });
+    var eTot=ws1.addRow(['','TOTAL EXPENSES','','Rs.'+mExps.reduce(function(s,e){return s+e.amount;},0),'']);
+    applyRow(eTot,C.CREAM_DK,true);eTot.height=18;eTot.getCell(4).alignment={horizontal:'right',vertical:'middle'};
+  }else{var nr2=ws1.addRow(['No expenses for '+monthLabel(reportYM)]);applyRow(nr2,C.CREAM,false);}
+
+  // ════════════════════════════════════════
+  // SHEET 2: FULL REPORT (all months)
+  // ════════════════════════════════════════
+  var ws2=wb.addWorksheet('Full Report — All Months',{
+    pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1}
+  });
+  ws2.columns=[{width:22},{width:14},{width:12},{width:12},{width:12},{width:12},{width:12},{width:12},{width:12},{width:20},{width:22}];
+  mergeTitle(ws2,'Society 406 — Complete Report: Oct 2025 to '+monthLabel(TODAY_YM),11,C.HDR_DARK);
+  ws2.addRow([]);
+
+  // Vehicle & Contact Directory
+  mergeTitle(ws2,'🏍 FLAT DIRECTORY — VEHICLES & CONTACTS',11,C.HDR_TEAL);
+  var vHdr=ws2.addRow(['Flat','Floor','Block','Owner / Contact Name','Phone Number','Vehicle 1 (Type)','Vehicle 1 (Number)','Vehicle 2 (Type)','Vehicle 2 (Number)']);
+  applyRow(vHdr,C.HDR_TEAL,true);vHdr.eachCell(function(c){c.font=hdrFont(C.HDR_TEAL_FG);});vHdr.height=20;
+  FLATS.forEach(function(f){
+    var det=getDetails(f.id);
+    var v1t=det.vehicles&&det.vehicles[0]?det.vehicles[0].type:'',v1n=det.vehicles&&det.vehicles[0]?det.vehicles[0].number:'';
+    var v2t=det.vehicles&&det.vehicles[1]?det.vehicles[1].type:'',v2n=det.vehicles&&det.vehicles[1]?det.vehicles[1].number:'';
+    var r=ws2.addRow([f.name,f.floor,f.block,det.ownerName||'',det.contact||'',v1t,v1n,v2t,v2n]);
+    applyRow(r,C.CREAM_DK,false);r.height=18;
+  });
+  ws2.addRow([]);
+
+  // Month-wise contributions
+  var cur=NAV_START;
+  while(cur<=TODAY_YM){
+    mergeTitle(ws2,'\u2014 '+monthLabel(cur)+' \u2014',11,cur===TODAY_YM?C.HDR_GREEN:'2c3e50');
+    var mHdr=ws2.addRow(['Flat','Floor','Block','Base Due','Penalty','Total Due','Paid','Balance','Status','Payment Date(s)','Payment Amount(s)']);
+    applyRow(mHdr,cur===TODAY_YM?C.HDR_GREEN:'2c3e50',true);
+    mHdr.eachCell(function(c){c.font=hdrFont(C.HDR_DARK_FG);c.alignment={horizontal:'center',vertical:'middle'};});mHdr.height=18;
+    FLATS.forEach(function(f){
+      var md=getMD(cur),cc=md.contributions[f.id];
+      var bd=cc.baseDue,pen=getEffectivePenalty(f.id,cur),arr=cc.arrears||0,paid=cc.paid,due=bd+pen+arr,bal=Math.max(0,due-paid);
+      var s=getStatus(f.id,cur),sL={paid:'Paid',warn:'Due Soon',danger:'Overdue',ok:'Pending'}[s]||'';
+      var ap=cc.paid||0,ps=(cc.payments||[]).reduce(function(sv,p){return sv+(p.amt||0);},0);
+      var pDates='-',pAmts='-';
+      if(ap>0){if(cc.payments&&cc.payments.length&&Math.abs(ps-ap)<0.01){pDates=cc.payments.map(function(p){return p.date||monthLabel(cur);}).join(' | ');pAmts=cc.payments.map(function(p){return 'Rs.'+p.amt;}).join(' | ');}else{pDates=monthLabel(cur);pAmts='Rs.'+ap;}}
+      var row=ws2.addRow([f.name,f.floor,f.block,bd,pen,due,paid,bal,sL,pDates,pAmts]);
+      var rf=s==='paid'?C.PAID:s==='danger'?C.OVD:s==='warn'?C.PEND:C.WHITE;
+      applyRow(row,rf,false);row.height=18;
+      [4,5,6,7,8].forEach(function(ci){row.getCell(ci).alignment={horizontal:'right',vertical:'middle'};});
+    });
+    var exps2=expsForMonth(cur);
+    if(exps2.length){
+      var eHdr2=ws2.addRow(['  Expenses\u2193','Date','Category','Amount','Notes','','','','']);
+      applyRow(eHdr2,C.AMBER_LT,true);eHdr2.height=16;
+      exps2.forEach(function(e){
+        var ds2=new Date(e.date+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+        var er=ws2.addRow(['',ds2,e.desc,'Rs.'+e.amount,e.notes||'','','','','']);
+        applyRow(er,C.AMBER_LT,false);er.height=16;er.getCell(4).alignment={horizontal:'right'};
+      });
+    }
+    ws2.addRow([]);cur=nextYM(cur);
   }
-  rows.push(['=== CUMULATIVE SUMMARY ===']);
-  rows.push(['Flat','Floor','Block','Total Base Due','Total Penalty','Total Due','Total Paid','Total Balance','Status']);
-  FLATS.forEach(function(f){ var bd=cumBaseDue(f.id,toYM),pen=cumPenalty(f.id,toYM),paid=cumPaid(f.id,toYM),due=bd+pen,bal=Math.max(0,due-paid),s=getStatus(f.id,toYM); rows.push([f.name,f.floor,f.block,bd,pen,due,paid,bal,{paid:'Paid',warn:'Due Soon',danger:'Overdue',ok:'Pending'}[s]||s]); });
-  rows.push([]); rows.push(['Total Collected','Rs.'+totCollected(toYM)]); rows.push(['Total Spent','Rs.'+totSpent(toYM)]);
-  rows.push(['Society Balance','Rs.'+(totCollected(toYM)-totSpent(toYM))]); rows.push(['Pending Dues','Rs.'+totPending(toYM)]); rows.push(['Flats Paid',paidCnt(toYM)+'/7']);
-  var csv=rows.map(function(r){ return r.map(function(c){ var s=String(c===undefined||c===null?'':c); return s.indexOf(',')>=0||s.indexOf('"')>=0?'"'+s.replace(/"/g,'""')+'"':s; }).join(','); }).join('\n');
-  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
-  var url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download='Society_406_Full_Report_'+toYM+'.csv';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-  toast('Full report downloaded (Oct 2025 to '+monthLabel(toYM)+')!');
+
+  // Cumulative summary
+  mergeTitle(ws2,'📊 CUMULATIVE SUMMARY — All Time',11,C.HDR_DARK);
+  var csHdr=ws2.addRow(['Flat','Floor','Block','Total Base Due','Total Penalty','Total Due','Total Paid','Total Balance','Status']);
+  applyRow(csHdr,C.HDR_DARK,true);csHdr.eachCell(function(c){c.font=hdrFont(C.HDR_DARK_FG);});csHdr.height=20;
+  FLATS.forEach(function(f){
+    var bd2=cumBaseDue(f.id,TODAY_YM),pen2=cumPenalty(f.id,TODAY_YM),paid2=cumPaid(f.id,TODAY_YM),due2=bd2+pen2,bal2=Math.max(0,due2-paid2),s2=getStatus(f.id,TODAY_YM);
+    var r2=ws2.addRow([f.name,f.floor,f.block,bd2,pen2,due2,paid2,bal2,{paid:'Paid',warn:'Due Soon',danger:'Overdue',ok:'Pending'}[s2]||s2]);
+    var rf2=s2==='paid'?C.PAID:s2==='danger'?C.OVD:s2==='warn'?C.PEND:C.WHITE;
+    applyRow(r2,rf2,false);r2.height=18;
+    [4,5,6,7,8].forEach(function(ci){r2.getCell(ci).alignment={horizontal:'right',vertical:'middle'};});
+  });
+  ws2.addRow([]);
+  var sumRows=[['Total Collected','Rs.'+totCollected(TODAY_YM)],['Total Spent','Rs.'+totSpent(TODAY_YM)],['Society Balance','Rs.'+(totCollected(TODAY_YM)-totSpent(TODAY_YM))],['Pending Dues','Rs.'+totPending(TODAY_YM)],['Flats Paid',paidCnt(TODAY_YM)+'/7']];
+  sumRows.forEach(function(sr){var r=ws2.addRow(sr);applyRow(r,C.CREAM_DK,true);r.height=18;r.getCell(2).alignment={horizontal:'right'};});
+
+  // ── DOWNLOAD ──
+  wb.xlsx.writeBuffer().then(function(buffer){
+    var blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    var url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='Society_406_Report_'+TODAY_YM+'.xlsx';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+    toast('\ud83d\udcca Excel report downloaded with 2 coloured sheets!');
+  }).catch(function(err){console.error('Excel error:',err);toast('\u274c Excel generation failed: '+err.message);});
 }
 
-function toast(msg){ var t=document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(function(){ t.style.opacity='0'; t.style.transform='translateX(40px)'; t.style.transition='all .3s'; setTimeout(function(){ t.remove(); },380); },2800); }
+function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.style.opacity='0';t.style.transform='translateX(40px)';t.style.transition='all .3s';setTimeout(function(){t.remove();},380);},2800);}
 
-// ── INIT ──
 (function init(){
-  loadSt();                               // localStorage instant; Firebase async via event
-  cfg=Object.assign({},DEFAULT_CFG,cfg);  // merge to ensure all fields exist
-  if(!cfg.flatNames) cfg.flatNames={};
-  applyFlatNames();
-  fixOldData();
-  refreshLoginDropdown();
-  ensureMonth(TODAY_YM);
-  // Update badge once Firebase connects
-  document.addEventListener('firebase-ready', function(){ _fbBadge(true); }, {once:true});
+  loadSt();cfg=Object.assign({},DEFAULT_CFG,cfg);
+  if(!cfg.flatNames)cfg.flatNames={};if(!cfg.flatDetails)cfg.flatDetails={};
+  applyFlatNames();fixOldData();refreshLoginDropdown();ensureMonth(TODAY_YM);setSyncBadge('off');
+  // Auto-connect: prefer hardcoded config, fall back to saved config
+  (function tryAutoConnect(){
+    var hc = window.HARDCODED_FB_CFG;
+    var configured = window.FB_AUTO_CONNECT
+                  && hc && hc.apiKey
+                  && hc.apiKey !== 'YOUR_API_KEY'
+                  && hc.projectId !== 'YOUR_PROJECT_ID';
+    if(configured){
+      // Use hardcoded config — also persist it so Settings page shows it
+      saveFbCfgLocal(hc);
+      setTimeout(function(){ initCloud(hc); }, 300);
+    } else {
+      // Fallback: use any config previously saved via Settings UI
+      var saved = getSavedFbCfg();
+      if(saved && saved.apiKey){ setTimeout(function(){ initCloud(saved); }, 500); }
+    }
+  })();
 })();
 
 </script>
+
+<!-- ── VEHICLE / CONTACT DETAILS MODAL ── -->
+<div id="vehicle-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:none;align-items:center;justify-content:center;padding:16px">
+  <div class="modal-box" style="max-width:500px;width:100%">
+    <div class="modal-hd">
+      <div>
+        <div class="modal-title" id="veh-modal-title">✏️ Edit Flat Details</div>
+        <div class="modal-sub" id="veh-modal-sub"></div>
+      </div>
+      <button class="modal-close" onclick="closeVehicleModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="fg" style="margin-bottom:12px">
+        <label class="fl">👤 Owner / Contact Name</label>
+        <input type="text" class="fi" id="veh-owner" placeholder="e.g. Sharma Family">
+      </div>
+      <div class="fg" style="margin-bottom:12px">
+        <label class="fl">📞 Contact Number</label>
+        <input type="tel" class="fi" id="veh-contact" placeholder="e.g. 9876543210">
+      </div>
+      <label class="fl" style="margin-bottom:8px;display:block">🚗 Vehicles</label>
+      <div id="veh-list-edit"></div>
+      <button class="btn btn-t" style="margin-top:6px;width:100%" onclick="addVehicleRow()">+ Add Vehicle</button>
+    </div>
+    <div class="modal-ft">
+      <button class="btn btn-ghost" onclick="closeVehicleModal()">Cancel</button>
+      <button class="btn btn-pri" onclick="saveVehicleDetails()">💾 Save Details</button>
+    </div>
+  </div>
+</div>
+
 
 
 <!-- ── QR LIGHTBOX MODAL ── -->
