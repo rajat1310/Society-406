@@ -16,24 +16,28 @@
      Just upload this file to GitHub as index.html.
 ═════════════════════════════════════════════════════════ -->
 <script>
-var SOCIETY_FB_CFG = {
-    apiKey: "AIzaSyDDoZiFcrBOAHrShhKzGiKyEKAXtGPCk5M",
-  authDomain: "society-406.firebaseapp.com",
-  databaseURL: "https://society-406-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "society-406",
-  storageBucket: "society-406.firebasestorage.app",
+// Store on window so it is accessible from anywhere at any time
+window.SOCIETY_FB_CFG = {
+  apiKey:            "AIzaSyDDoZiFcrBOAHrShhKzGiKyEKAXtGPCk5M",
+  authDomain:        "society-406.firebaseapp.com",
+  databaseURL:       "https://society-406-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "society-406",
+  storageBucket:     "society-406.firebasestorage.app",
   messagingSenderId: "679666442244",
-  appId: "1:679666442244:web:39cd2bef3e31273baf9551",
+  appId:             "1:679666442244:web:39cd2bef3e31273baf9551",
   measurementId:     "G-6KM3CDJ1HX"
 };
 
-// Auto-connect after all scripts have loaded
-document.addEventListener('DOMContentLoaded', function() {
+// Use window 'load' — fires after ALL scripts are fully parsed and executed.
+// This guarantees initCloudRTDB is defined before we call it.
+window.addEventListener('load', function() {
   setTimeout(function() {
     if (typeof initCloudRTDB === 'function') {
-      initCloudRTDB(SOCIETY_FB_CFG);
+      initCloudRTDB(window.SOCIETY_FB_CFG);
+    } else {
+      console.error('Society 406: initCloudRTDB not defined — check script order.');
     }
-  }, 400);
+  }, 300);
 });
 </script>
 <!-- ExcelJS for coloured multi-sheet reports -->
@@ -1048,18 +1052,31 @@ function setSyncBadge(state){
 function getSavedFbCfg(){try{var s=localStorage.getItem(FB_KEY);return s?JSON.parse(s):null;}catch(e){return null;}}
 function saveFbCfgLocal(fc){localStorage.setItem(FB_KEY,JSON.stringify(fc));}
 
-// initCloudRTDB — called automatically on DOMContentLoaded with hardcoded config
+// initCloudRTDB — called automatically on window.load with hardcoded config
 // Also called by connectCloud() from Settings UI
 function initCloudRTDB(fbCfg){
-  if(!fbCfg||!fbCfg.apiKey||!fbCfg.databaseURL){setSyncBadge('off');return false;}
+  if(!fbCfg||!fbCfg.apiKey||!fbCfg.databaseURL){
+    console.warn('Society 406: Missing apiKey or databaseURL in config.');
+    setSyncBadge('error'); return false;
+  }
   try{
-    var app=(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length>0)?firebase.app():firebase.initializeApp(fbCfg);
-    rtdb=firebase.database(app);
-    cloudEnabled=true;
+    // If Firebase app already exists, reuse it; otherwise initialise
+    var app;
+    if(typeof firebase==='undefined'){
+      console.error('Society 406: Firebase SDK not loaded.');
+      setSyncBadge('error'); return false;
+    }
+    if(firebase.apps && firebase.apps.length>0){
+      app = firebase.app();
+    } else {
+      app = firebase.initializeApp(fbCfg);
+    }
+    rtdb = firebase.database(app);
+    cloudEnabled = true;
     setSyncBadge('on');
-    saveFbCfgLocal(fbCfg);
-    _loadFromRTDB();       // fetch latest data immediately
-    _startRTDBListener();  // then watch for real-time changes
+    saveFbCfgLocal(fbCfg);     // persist so Settings UI shows connected state
+    _loadFromRTDB();            // fetch latest data immediately on connect
+    _startRTDBListener();       // watch for real-time changes from any device
     return true;
   }catch(e){
     console.error('Firebase RTDB init error:',e);
@@ -1071,22 +1088,39 @@ function initCloudRTDB(fbCfg){
 // Keep initCloud() name so Settings UI button still works
 function initCloud(fbCfg){ return initCloudRTDB(fbCfg); }
 
-// Load latest data from Firebase once on connect
-function _loadFromRTDB(){
-  if(!rtdb)return;
+// Load latest data from Firebase once on connect (with retry)
+function _loadFromRTDB(retryCount){
+  if(!rtdb) return;
+  retryCount = retryCount || 0;
   rtdb.ref(_rtdbPath).once('value').then(function(snap){
-    if(!snap.exists())return;
+    if(!snap.exists()){
+      setSyncBadge('on');
+      console.info('Society 406: No data in Firebase yet — starting fresh.');
+      return;
+    }
     var d=snap.val();
-    if(d.cfg)cfg=Object.assign({},DEFAULT_CFG,d.cfg);
-    if(d.allData)allData=d.allData;
-    if(d.adminPin)adminPin=d.adminPin;
-    if(!cfg.flatNames)cfg.flatNames={};
-    if(!cfg.flatDetails)cfg.flatDetails={};
-    applyFlatNames();fixOldData();ensureMonth(TODAY_YM);
-    try{localStorage.setItem(SK.cfg,JSON.stringify(cfg));localStorage.setItem(SK.data,JSON.stringify(allData));localStorage.setItem(SK.pin,adminPin);}catch(e){}
+    if(d.cfg)  cfg=Object.assign({},DEFAULT_CFG,d.cfg);
+    if(d.allData) allData=d.allData;
+    if(d.adminPin) adminPin=d.adminPin;
+    if(!cfg.flatNames) cfg.flatNames={};
+    if(!cfg.flatDetails) cfg.flatDetails={};
+    applyFlatNames(); fixOldData(); ensureMonth(TODAY_YM);
+    try{
+      localStorage.setItem(SK.cfg, JSON.stringify(cfg));
+      localStorage.setItem(SK.data,JSON.stringify(allData));
+      localStorage.setItem(SK.pin, adminPin);
+    }catch(e){}
     setSyncBadge('on');
-    if(currentUser){try{renderAll();}catch(e){console.error(e);}}
-  }).catch(function(e){console.error('RTDB load failed:',e);setSyncBadge('error');});
+    if(currentUser){ try{ renderAll(); }catch(e){ console.error(e); } }
+  }).catch(function(e){
+    console.error('RTDB load failed:',e);
+    if(retryCount < 3){
+      // Retry up to 3 times with increasing delay
+      setTimeout(function(){ _loadFromRTDB(retryCount+1); }, (retryCount+1)*2000);
+    } else {
+      setSyncBadge('error');
+    }
+  });
 }
 
 // Real-time listener — all members auto-update when admin saves
@@ -1640,14 +1674,31 @@ function saveSettings(){
   saveSt();try{renderAll();}catch(e){console.error(e);}toast('\u2705 Settings saved and synced to all devices!');
 }
 function connectCloud(){
-  var fbCfg={apiKey:document.getElementById('fb-apiKey').value.trim(),authDomain:document.getElementById('fb-authDomain').value.trim(),projectId:document.getElementById('fb-projectId').value.trim(),storageBucket:document.getElementById('fb-storageBucket').value.trim(),messagingSenderId:document.getElementById('fb-messagingSenderId').value.trim(),appId:document.getElementById('fb-appId').value.trim()};
+  // Always use the hardcoded config (already has databaseURL) merged with any form input
+  var hardcoded = window.SOCIETY_FB_CFG || {};
+  var fbCfg={
+    apiKey:           (document.getElementById('fb-apiKey')||{}).value||hardcoded.apiKey||'',
+    authDomain:       (document.getElementById('fb-authDomain')||{}).value||hardcoded.authDomain||'',
+    projectId:        (document.getElementById('fb-projectId')||{}).value||hardcoded.projectId||'',
+    storageBucket:    (document.getElementById('fb-storageBucket')||{}).value||hardcoded.storageBucket||'',
+    messagingSenderId:(document.getElementById('fb-messagingSenderId')||{}).value||hardcoded.messagingSenderId||'',
+    appId:            (document.getElementById('fb-appId')||{}).value||hardcoded.appId||'',
+    databaseURL:      hardcoded.databaseURL||'',   // CRITICAL — always take from hardcoded config
+    measurementId:    hardcoded.measurementId||''
+  };
+  // Trim whitespace from all values
+  Object.keys(fbCfg).forEach(function(k){ fbCfg[k]=(fbCfg[k]||'').trim(); });
   if(!fbCfg.apiKey||!fbCfg.projectId){toast('\u26a0 Enter API Key and Project ID');return;}
+  if(!fbCfg.databaseURL){toast('\u26a0 databaseURL missing — using hardcoded config.');fbCfg=hardcoded;}
   saveFbCfgLocal(fbCfg);var ok=initCloud(fbCfg);
   if(ok){toast('\u2705 Connected! All changes sync across all devices.');var btn=document.getElementById('cloud-connect-btn');if(btn){btn.textContent='\u2601\ufe0f Connected \u2014 Reconnect';btn.style.background='var(--green)';}}
 }
 function disconnectCloud(){
-  if(!confirm('Disconnect from cloud?'))return;if(cloudUnsub)cloudUnsub();db=null;cloudEnabled=false;
-  localStorage.removeItem(FB_KEY);setSyncBadge('off');toast('\ud83d\udcbe Disconnected. Saving locally.');
+  if(!confirm('Disconnect from cloud?'))return;
+  if(cloudUnsub){try{cloudUnsub();}catch(e){}}
+  if(typeof rtdb!=='undefined'&&rtdb){try{rtdb.ref('society406/appdata').off();}catch(e){}}
+  db=null;cloudEnabled=false;if(typeof _rtdbListenerActive!=='undefined')_rtdbListenerActive=false;
+  localStorage.removeItem(FB_KEY);setSyncBadge('off');toast('💾 Disconnected. Saving locally.');
   var btn=document.getElementById('cloud-connect-btn');if(btn){btn.textContent='Connect to Cloud';btn.style.background='';}
 }
 function handleQR(event){var file=event.target.files[0];if(!file)return;if(file.size>5*1024*1024){toast('\u26a0 Max 5MB');return;}var reader=new FileReader();reader.onload=function(e){cfg.qrData=e.target.result;refreshQRPreview();renderPayPage();saveSt();toast('\u2705 QR uploaded!');};reader.readAsDataURL(file);}
@@ -1880,10 +1931,20 @@ function toast(msg){var t=document.createElement('div');t.className='toast';t.te
   loadSt();cfg=Object.assign({},DEFAULT_CFG,cfg);
   if(!cfg.flatNames)cfg.flatNames={};if(!cfg.flatDetails)cfg.flatDetails={};
   applyFlatNames();fixOldData();refreshLoginDropdown();ensureMonth(TODAY_YM);setSyncBadge('off');
-  // Auto-connect handled by DOMContentLoaded in config block above.
-  // Fallback: use any config previously saved via Settings UI.
-  var _savedCfg=getSavedFbCfg();
-  if(_savedCfg&&_savedCfg.apiKey&&!cloudEnabled){setTimeout(function(){initCloudRTDB(_savedCfg);},700);}
+  // Auto-connect: window.load handler in config block calls initCloudRTDB.
+  // Fallback: merge saved config with hardcoded to ensure databaseURL is always present.
+  setTimeout(function(){
+    if(cloudEnabled) return; // already connected via window.load handler
+    var saved = getSavedFbCfg();
+    var hard  = window.SOCIETY_FB_CFG || {};
+    // Merge: hardcoded values fill any gaps in saved config
+    var merged = Object.assign({}, hard, saved || {});
+    // Always use hardcoded databaseURL — it's the most reliable
+    merged.databaseURL = hard.databaseURL || (saved && saved.databaseURL) || '';
+    if(merged.apiKey && merged.databaseURL){
+      initCloudRTDB(merged);
+    }
+  }, 900);
 })();
 
 </script>
