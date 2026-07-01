@@ -737,12 +737,41 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
     <div class="fg"><label class="fl">Penalty (₹)</label><div class="iu"><input type="number" class="fi" id="fem-pen" min="0"><span>₹</span></div></div>
     <div class="fg"><label class="fl">Arrears (₹)</label><div class="iu"><input type="number" class="fi" id="fem-arr" min="0"><span>₹</span></div></div>
   </div>
+  <div class="fg" style="margin-top:-6px">
+    <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-mu);cursor:pointer">
+      <input type="checkbox" id="fem-pen-manual" style="width:15px;height:15px;cursor:pointer">
+      🔒 Manual override — freeze this penalty at the value above (won't auto-recalculate). Leave unchecked to let it stay auto-calculated from actual payment dates.
+    </label>
+  </div>
+  <div class="fg" style="margin-top:6px">
+    <label class="fl">💳 Payment Records (the date of each one decides if penalty applies)</label>
+    <div id="fem-payments-list" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div>
+    <button type="button" class="btn btn-s btn-sm" style="margin-top:8px;width:100%" onclick="addFemPaymentRow()">+ Add Payment Record</button>
+    <div style="font-size:11px;color:var(--ink-mu);margin-top:6px">⚠ If a date here doesn't match when the member actually paid, fix it — that's what drives the penalty calculation. If you add records here, the "Amount Paid" box above is ignored and the total is taken from these records instead.</div>
+    <button type="button" class="btn btn-amber btn-sm" style="margin-top:8px;width:100%" onclick="recalcFemPenalty()">🔄 Recalculate Penalty From These Dates</button>
+  </div>
   <div class="modal-actions" style="justify-content:space-between">
     <button class="btn btn-d btn-sm" onclick="resetFlatZero()">🔄 Reset to Zero</button>
     <div style="display:flex;gap:9px">
       <button class="btn btn-s btn-sm" onclick="closeFlatEdit()">Cancel</button>
       <button class="btn btn-t btn-sm" onclick="saveFlatEdit()">💾 Save</button>
     </div>
+  </div>
+</div>
+</div>
+
+<!-- ── QUICK PAY (MARK PAID) MODAL ── -->
+<div class="mbd hidden" id="quickpay-modal">
+<div class="modal" style="max-width:420px">
+  <div class="modal-title">✅ Mark Payment</div>
+  <div class="modal-sub" id="qp-sub">Confirm payment for this flat.</div>
+  <div class="fr">
+    <div class="fg"><label class="fl">Amount (₹)</label><div class="iu"><input type="number" class="fi" id="qp-amt" min="0"><span>₹</span></div></div>
+    <div class="fg"><label class="fl">Payment Date</label><input type="date" class="fi" id="qp-date"></div>
+  </div>
+  <div class="modal-actions" style="justify-content:flex-end">
+    <button class="btn btn-s btn-sm" onclick="closeQuickPay()">Cancel</button>
+    <button class="btn btn-t btn-sm" onclick="confirmQuickPay()">✓ Confirm Payment</button>
   </div>
 </div>
 </div>
@@ -867,22 +896,51 @@ function penaltyActive(ym){return ym>=penaltyStartYM();}
 function displayMonth(){return viewMonth>TODAY_YM?TODAY_YM:viewMonth;}
 
 // ── PENALTY ──
+// Penalty is calculated from the ACTUAL dated payment records for the month —
+// not merely from whether the month has ended. If a flat's full due (base + arrears)
+// was paid on or before the Penalty Day, penalty stays ₹0 forever, even after the
+// month closes. If admin explicitly sets a value (including 0) via the Edit Flat
+// panel's "Manual Override" checkbox, or via "Apply Penalty", that value is frozen
+// and will no longer be auto-recalculated.
+function computeAutoPenalty(fid,ym,overrideC){
+  if(!penaltyActive(ym))return 0;if(ym>TODAY_YM)return 0;if(isManualMonth(ym))return 0;
+  var c=overrideC||(allData[ym]&&allData[ym].contributions[fid]);if(!c)return 0;
+  var due=(c.baseDue||0)+(c.arrears||0);if(due<=0)return 0;
+
+  var mDate=ymToDate(ym),y=mDate.getFullYear(),m=mDate.getMonth();
+  var deadline=new Date(y,m,cfg.penaltyDay,23,59,59);
+  var monthStart=new Date(y,m,1),monthEnd=new Date(y,m+1,0);
+
+  var pays=(c.payments||[]).filter(function(p){return p&&p.date;}).slice()
+    .sort(function(a,b){return new Date(a.date+'T00:00:00')-new Date(b.date+'T00:00:00');});
+
+  var cum=0,paidByDeadline=0,fullyPaidDate=null;
+  pays.forEach(function(p){
+    cum+=p.amt||0;
+    var pd=new Date(p.date+'T00:00:00');
+    if(pd<=deadline)paidByDeadline=cum;
+    if(!fullyPaidDate&&cum>=due)fullyPaidDate=pd;
+  });
+
+  // Legacy data with a paid total but no dated payment entries — can't verify
+  // when it was paid, so don't unfairly penalise if it's already fully paid.
+  if(pays.length===0&&(c.paid||0)>=due)return 0;
+
+  if(paidByDeadline>=due)return 0; // paid on/before the deadline — no penalty, ever
+
+  var capDate=ym===TODAY_YM?TODAY:monthEnd;
+  var endDate=(fullyPaidDate&&fullyPaidDate<capDate)?fullyPaidDate:capDate;
+  if(endDate>monthEnd)endDate=monthEnd;if(endDate<monthStart)endDate=monthStart;
+
+  var d=endDate.getDate();
+  if(d<=cfg.penaltyDay)return 0;
+  return cfg.penaltyAmt*Math.ceil((d-cfg.penaltyDay)/cfg.compoundDays);
+}
 function getEffectivePenalty(fid,ym){
   if(!penaltyActive(ym))return 0;if(ym>TODAY_YM)return 0;
-  var c=allData[ym]&&allData[ym].contributions[fid];
-  var stored=c?(c.penalty||0):0;
-  if(ym===TODAY_YM){
-    var d=dom();if(d<=cfg.penaltyDay)return stored;
-    var rawDue=(c?(c.baseDue||0):0)+stored+(c?(c.arrears||0):0);
-    if(c&&rawDue>0&&c.paid>=rawDue)return stored;
-    var live=cfg.penaltyAmt*Math.ceil((d-cfg.penaltyDay)/cfg.compoundDays);
-    return Math.max(stored,live);
-  }
-  if(stored>0)return stored;if(isManualMonth(ym))return 0;
-  var mDate=ymToDate(ym);
-  var lastDay=new Date(mDate.getFullYear(),mDate.getMonth()+1,0).getDate();
-  if(lastDay<=cfg.penaltyDay)return 0;
-  return cfg.penaltyAmt*Math.ceil((lastDay-cfg.penaltyDay)/cfg.compoundDays);
+  var c=allData[ym]&&allData[ym].contributions[fid];if(!c)return 0;
+  if(c.penaltyManual)return c.penalty||0;
+  return computeAutoPenalty(fid,ym);
 }
 
 // ── DATA ──
@@ -1439,6 +1497,7 @@ function renderContribTable(){
 function inlineEdit(fid,field,val){
   var v=parseFloat(val)||0;if(v<0){toast('\u26a0 Cannot be negative');return;}
   var c=getMD(viewMonth).contributions[fid];c[field]=v;
+  if(field==='penalty')c.penaltyManual=true;
   if(field==='paid')syncPayments(fid,viewMonth,v);
   saveSt();renderContribTable();renderStats();renderFlatCards();
 }
@@ -1536,21 +1595,36 @@ function populateAdmSelects(){
 function recPayment(){
   var fid=document.getElementById('pay-flat').value,amt=parseFloat(document.getElementById('pay-amt').value),date=document.getElementById('pay-date').value;
   if(!fid){toast('\u26a0 Select a flat');return;}if(!amt||amt<1){toast('\u26a0 Enter valid amount');return;}
-  var c=getMD(viewMonth).contributions[fid];var ep=getEffectivePenalty(fid,viewMonth);if(ep>(c.penalty||0))c.penalty=ep;
+  var c=getMD(viewMonth).contributions[fid];
   c.paid+=amt;if(!c.payments)c.payments=[];c.payments.push({amt:amt,date:date||TODAY.toISOString().split('T')[0]});
   document.getElementById('pay-amt').value='';saveSt();renderAll();toast('\u2705 Payment \u20b9'+amt+' recorded!');
 }
+var quickPayFid=null;
 function quickPay(fid){
   var bal=flatBal(fid,viewMonth);if(bal===0){toast('\u2139 Already fully paid');return;}
-  if(!confirm('Mark remaining \u20b9'+bal+' as paid?'))return;
-  var c=getMD(viewMonth).contributions[fid];var ep=getEffectivePenalty(fid,viewMonth);if(ep>(c.penalty||0))c.penalty=ep;
-  c.paid+=bal;if(!c.payments)c.payments=[];c.payments.push({amt:bal,date:TODAY.toISOString().split('T')[0]});
-  saveSt();renderAll();toast('\u2705 Payment recorded!');
+  quickPayFid=fid;
+  var f=FLATS.find(function(x){return x.id===fid;});
+  document.getElementById('qp-sub').textContent=(f?f.name+' \u00b7 '+f.floor:'')+' \u2014 '+monthLabel(viewMonth);
+  document.getElementById('qp-amt').value=bal;
+  document.getElementById('qp-date').value=TODAY.toISOString().split('T')[0];
+  document.getElementById('quickpay-modal').classList.remove('hidden');
+}
+function closeQuickPay(){document.getElementById('quickpay-modal').classList.add('hidden');quickPayFid=null;}
+function confirmQuickPay(){
+  if(!quickPayFid)return;
+  var amt=parseFloat(document.getElementById('qp-amt').value),date=document.getElementById('qp-date').value;
+  if(!amt||amt<=0){toast('\u26a0 Enter a valid amount');return;}
+  if(!date){toast('\u26a0 Select a payment date');return;}
+  var fid=quickPayFid,c=getMD(viewMonth).contributions[fid];
+  c.paid=(c.paid||0)+amt;if(!c.payments)c.payments=[];c.payments.push({amt:amt,date:date});
+  closeQuickPay();saveSt();renderAll();toast('\u2705 Payment recorded!');
 }
 function applyPenalty(){
   var fid=document.getElementById('pen-flat').value,amt=parseFloat(document.getElementById('pen-amt').value);
   if(!fid){toast('\u26a0 Select flat');return;}if(!amt||amt<1){toast('\u26a0 Enter amount');return;}
-  getMD(viewMonth).contributions[fid].penalty+=amt;document.getElementById('pen-amt').value='';
+  var c=getMD(viewMonth).contributions[fid];
+  var base=c.penaltyManual?(c.penalty||0):computeAutoPenalty(fid,viewMonth);
+  c.penalty=base+amt;c.penaltyManual=true;document.getElementById('pen-amt').value='';
   saveSt();renderAll();toast('\u26a0 Penalty \u20b9'+amt+' applied');
 }
 function doRollover(manual){
@@ -1584,19 +1658,56 @@ function openFlatEdit(fid){
   document.getElementById('fem-title').textContent='\u270f\ufe0f Edit \u2014 '+f.name+' '+f.floor;
   document.getElementById('fem-sub').textContent=f.block+' \u00b7 '+monthLabel(viewMonth);
   document.getElementById('fem-base').value=c.baseDue;document.getElementById('fem-paid').value=c.paid;
-  document.getElementById('fem-pen').value=c.penalty;document.getElementById('fem-arr').value=c.arrears;
+  document.getElementById('fem-pen').value=getEffectivePenalty(fid,viewMonth);document.getElementById('fem-arr').value=c.arrears;
+  document.getElementById('fem-pen-manual').checked=!!c.penaltyManual;
+  renderFemPayments(c.payments);
   document.getElementById('flat-edit-modal').classList.remove('hidden');
+}
+function renderFemPayments(payments){
+  var wrap=document.getElementById('fem-payments-list');if(!wrap)return;wrap.innerHTML='';
+  (payments||[]).forEach(function(p){addFemPaymentRow(p.amt,p.date);});
+}
+function addFemPaymentRow(amt,date){
+  var wrap=document.getElementById('fem-payments-list');if(!wrap)return;
+  var row=document.createElement('div');
+  row.className='fem-pay-row';
+  row.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end';
+  row.innerHTML='<div class="fg" style="margin-bottom:0"><label class="fl">Amount (\u20b9)</label><input type="number" class="fi fem-pay-amt" min="0" value="'+(amt!=null?amt:'')+'"></div>'
+    +'<div class="fg" style="margin-bottom:0"><label class="fl">Date Paid</label><input type="date" class="fi fem-pay-date" value="'+(date||'')+'"></div>'
+    +'<button type="button" class="btn btn-d btn-xs" onclick="this.parentElement.remove()">\u2715</button>';
+  wrap.appendChild(row);
+}
+function collectFemPayments(){
+  var rows=document.querySelectorAll('#fem-payments-list .fem-pay-row'),out=[];
+  rows.forEach(function(r){
+    var amt=parseFloat(r.querySelector('.fem-pay-amt').value)||0,date=r.querySelector('.fem-pay-date').value;
+    if(amt>0&&date)out.push({amt:amt,date:date});
+  });
+  return out;
+}
+function recalcFemPenalty(){
+  var base=parseFloat(document.getElementById('fem-base').value)||0,arr=parseFloat(document.getElementById('fem-arr').value)||0;
+  var payments=collectFemPayments(),typedPaid=parseFloat(document.getElementById('fem-paid').value)||0;
+  var finalPayments=payments.length?payments:(typedPaid>0?[{amt:typedPaid,date:TODAY.toISOString().split('T')[0]}]:[]);
+  var paid=payments.length?payments.reduce(function(s,p){return s+p.amt;},0):typedPaid;
+  var tempC={baseDue:base,arrears:arr,paid:paid,payments:finalPayments};
+  var val=computeAutoPenalty(editFlatId,viewMonth,tempC);
+  document.getElementById('fem-pen').value=val;
+  document.getElementById('fem-pen-manual').checked=false;
+  toast('\ud83d\udd04 Recalculated: \u20b9'+val);
 }
 function openFlatEditFromSel(){var fid=document.getElementById('edit-flat-sel').value;if(!fid){toast('\u26a0 Select a flat');return;}openFlatEdit(fid);}
 function closeFlatEdit(){document.getElementById('flat-edit-modal').classList.add('hidden');editFlatId=null;}
 function saveFlatEdit(){
   if(!editFlatId)return;
-  var base=parseFloat(document.getElementById('fem-base').value)||0,paid=parseFloat(document.getElementById('fem-paid').value)||0;
+  var base=parseFloat(document.getElementById('fem-base').value)||0;
   var pen=parseFloat(document.getElementById('fem-pen').value)||0,arr=parseFloat(document.getElementById('fem-arr').value)||0;
+  var manual=document.getElementById('fem-pen-manual').checked;
+  var payments=collectFemPayments(),typedPaid=parseFloat(document.getElementById('fem-paid').value)||0;
+  var paid=payments.length?payments.reduce(function(s,p){return s+p.amt;},0):typedPaid;
   if(base<0||paid<0||pen<0||arr<0){toast('\u26a0 No negative values');return;}
-  var oldPaid=getMD(viewMonth).contributions[editFlatId].paid||0;
-  getMD(viewMonth).contributions[editFlatId]={baseDue:base,paid:paid,penalty:pen,arrears:arr,payments:getMD(viewMonth).contributions[editFlatId].payments||[]};
-  if(paid!==oldPaid)syncPayments(editFlatId,viewMonth,paid);
+  var finalPayments=payments.length?payments:(typedPaid>0?[{amt:typedPaid,date:TODAY.toISOString().split('T')[0],note:'Admin adjusted'}]:[]);
+  getMD(viewMonth).contributions[editFlatId]={baseDue:base,paid:paid,penalty:pen,penaltyManual:manual,arrears:arr,payments:finalPayments};
   closeFlatEdit();saveSt();renderAll();toast('\u2705 Updated!');
 }
 function resetFlatZero(){
