@@ -601,6 +601,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
     </div>
 
     <div class="ss">
+      <div class="ss-title">🏦 Opening Society Balance</div>
+      <div class="ss-desc">Cash/bank balance the society already had before you started using this app (e.g. ₹162 carried forward from May 2026). This gets added on top of all collections and expenses everywhere the Society Balance is shown or exported.</div>
+      <div class="fr">
+        <div class="fg"><label class="fl">Opening Balance (₹)</label>
+          <div class="iu"><input type="number" class="fi" id="cfg-openbal" min="0" step="1" placeholder="0"><span>₹</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ss">
       <div class="ss-title">📅 Contribution Start Month &amp; Year</div>
       <div class="ss-desc">From this month onwards ₹500 auto-applies. Oct 2025 to the month before this = zero by default (admin enters manually). Navigation always starts Oct 2025.</div>
       <div class="fr">
@@ -864,6 +874,7 @@ var DEFAULT_CFG={
   upiId:'',acName:'',socName:'Society 406',qrData:null,
   cycleStartMonth:6,cycleStartYear:2026,
   penaltyStartMonth:6,penaltyStartYear:2026,
+  openingBalance:0, // cash/bank balance carried forward from before the app was used
   flatNames:{},
   flatDetails:{}   // {fid:{ownerName,contact,vehicles:[{type,number}]}}
 };
@@ -974,6 +985,7 @@ function cumDue(fid,toYM){return cumBaseDue(fid,toYM)+cumPenalty(fid,toYM);}
 function cumBal(fid,toYM){return Math.max(0,cumDue(fid,toYM)-cumPaid(fid,toYM));}
 function totCollected(toYM){var t=0,cur=NAV_START;while(cur<=toYM){if(allData[cur]&&allData[cur].contributions)FLATS.forEach(function(f){t+=allData[cur].contributions[f.id]?allData[cur].contributions[f.id].paid||0:0;});cur=nextYM(cur);}return t;}
 function totSpent(toYM){var t=0;Object.values(allData).forEach(function(md){(md.expenses||[]).forEach(function(e){if(e.date&&e.date.substring(0,7)<=toYM)t+=e.amount;});});return t;}
+function societyBalance(toYM){return (cfg.openingBalance||0)+totCollected(toYM)-totSpent(toYM);}
 function expsForMonth(ym){var seen=new Set(),res=[];Object.values(allData).forEach(function(md){(md.expenses||[]).forEach(function(e){if(e.date&&e.date.substring(0,7)===ym&&!seen.has(e.id)){seen.add(e.id);res.push(e);}});});return res.sort(function(a,b){return new Date(b.date)-new Date(a.date);});}
 function totPending(toYM){return FLATS.reduce(function(s,f){return s+cumBal(f.id,toYM);},0);}
 function paidCnt(toYM){return FLATS.filter(function(f){return cumBal(f.id,toYM)===0;}).length;}
@@ -1399,12 +1411,12 @@ function renderAlert(){
 
 function renderStats(){
   var ym=TODAY_YM;
-  var col=totCollected(ym),spt=totSpent(ym),bal=col-spt,pnd=totPending(ym),clr=paidCnt(ym);
+  var col=totCollected(ym),spt=totSpent(ym),bal=societyBalance(ym),pnd=totPending(ym),clr=paidCnt(ym);
   document.getElementById('s-col').textContent='\u20b9'+col.toLocaleString('en-IN');
   document.getElementById('s-spt').textContent='\u20b9'+spt.toLocaleString('en-IN');
   document.getElementById('s-bal').textContent=(bal<0?'-':'')+'\u20b9'+Math.abs(bal).toLocaleString('en-IN');
   document.getElementById('s-bal').className='sc-vl '+(bal>=0?'t':'r');
-  document.getElementById('s-bal-sub').textContent=bal<0?'\u26a0 Deficit!':'Available funds';
+  document.getElementById('s-bal-sub').textContent=(bal<0?'\u26a0 Deficit!':'Available funds')+(cfg.openingBalance?' (incl. \u20b9'+cfg.openingBalance.toLocaleString('en-IN')+' opening bal.)':'');
   document.getElementById('s-pnd').textContent='\u20b9'+pnd.toLocaleString('en-IN');
   document.getElementById('s-pnd-sub').textContent=FLATS.filter(function(f){return cumBal(f.id,ym)>0;}).length+' flat(s) pending';
   document.getElementById('s-clr').textContent=clr+'/7';
@@ -1776,6 +1788,7 @@ function loadCfgForm(){
   sv('cfg-base',cfg.baseAmount);sv('cfg-start-month',cfg.cycleStartMonth);sv('cfg-start-year',cfg.cycleStartYear);
   sv('cfg-start',cfg.startDay);sv('cfg-warn',cfg.warnDay);sv('cfg-pday',cfg.penaltyDay);sv('cfg-uday',cfg.updateDay);
   sv('cfg-pamt',cfg.penaltyAmt);sv('cfg-cdays',cfg.compoundDays);sv('cfg-upi',cfg.upiId);sv('cfg-acn',cfg.acName);sv('cfg-soc',cfg.socName);
+  sv('cfg-openbal',cfg.openingBalance||0);
   renderFlatNameEditors();loadCloudCfgForm();updateCfgPreview();
   ['cfg-base','cfg-start-month','cfg-start-year','cfg-start','cfg-warn','cfg-pday','cfg-uday','cfg-pamt','cfg-cdays'].forEach(function(id){var el=document.getElementById(id);if(el)el.oninput=updateCfgPreview;});
   refreshQRPreview();
@@ -1797,11 +1810,13 @@ function saveSettings(){
   function gi(id){return document.getElementById(id);}function gv(id){return parseInt(gi(id)&&gi(id).value)||0;}
   var ba=gv('cfg-base'),cm=gv('cfg-start-month'),cy=gv('cfg-start-year'),sd=gv('cfg-start'),wd=gv('cfg-warn'),pd=gv('cfg-pday'),ud=gv('cfg-uday'),pa=gv('cfg-pamt'),cd=gv('cfg-cdays');
   var upi=gi('cfg-upi')&&gi('cfg-upi').value.trim()||'',acn=gi('cfg-acn')&&gi('cfg-acn').value.trim()||'',soc=gi('cfg-soc')&&gi('cfg-soc').value.trim()||'Society 406';
+  var ob=parseFloat(gi('cfg-openbal')&&gi('cfg-openbal').value)||0;
   if(!ba||ba<100){toast('\u26a0 Min \u20b9100');return;}if(!cm||cm<1||cm>12){toast('\u26a0 Month 1-12');return;}if(!cy||cy<2025||cy>2099){toast('\u26a0 Valid year');return;}
   if(!sd||sd<1||sd>28){toast('\u26a0 Start day 1-28');return;}if(!wd||wd<=sd){toast('\u26a0 Warning > start');return;}if(!pd||pd<=wd){toast('\u26a0 Penalty > warning');return;}
   if(!ud||ud<1||ud>28){toast('\u26a0 Update day 1-28');return;}if(pa<0){toast('\u26a0 Penalty >= 0');return;}if(!cd||cd<1){toast('\u26a0 Compound >= 1');return;}
+  if(ob<0){toast('\u26a0 Opening balance >= 0');return;}
   saveFlatNames();
-  cfg=Object.assign({},cfg,{baseAmount:ba,cycleStartMonth:cm,cycleStartYear:cy,penaltyStartMonth:cm,penaltyStartYear:cy,startDay:sd,warnDay:wd,penaltyDay:pd,updateDay:ud,penaltyAmt:pa,compoundDays:cd,upiId:upi,acName:acn,socName:soc});
+  cfg=Object.assign({},cfg,{baseAmount:ba,cycleStartMonth:cm,cycleStartYear:cy,penaltyStartMonth:cm,penaltyStartYear:cy,startDay:sd,warnDay:wd,penaltyDay:pd,updateDay:ud,penaltyAmt:pa,compoundDays:cd,upiId:upi,acName:acn,socName:soc,openingBalance:ob});
   var cs=contribStartYM();
   Object.keys(allData).forEach(function(ym){if(ym<TODAY_YM)return;FLATS.forEach(function(f){if(allData[ym].contributions[f.id])allData[ym].contributions[f.id].baseDue=ym<cs?0:ba;});});
   if(viewMonth<NAV_START)viewMonth=NAV_START;
@@ -1901,9 +1916,10 @@ function downloadExcel(){
   // ── SUMMARY ──
   mergeTitle(ws1,'📊 SUMMARY',11,C.HDR_TEAL);
   var sumData=[
+    ['Opening Balance (Carried Forward)','Rs.'+(cfg.openingBalance||0)],
     ['Total Contributions Collected','Rs.'+totCollected(reportYM)],
     ['Total Expenses Paid','Rs.'+totSpent(reportYM)],
-    ['Society Balance (Collected - Spent)','Rs.'+(totCollected(reportYM)-totSpent(reportYM))],
+    ['Society Balance (Opening + Collected - Spent)','Rs.'+societyBalance(reportYM)],
     ['Pending Dues','Rs.'+totPending(reportYM)],
     ['Flats Cleared',paidCnt(reportYM)+' / 7']
   ];
@@ -2046,7 +2062,7 @@ function downloadExcel(){
     [4,5,6,7,8].forEach(function(ci){r2.getCell(ci).alignment={horizontal:'right',vertical:'middle'};});
   });
   ws2.addRow([]);
-  var sumRows=[['Total Collected','Rs.'+totCollected(TODAY_YM)],['Total Spent','Rs.'+totSpent(TODAY_YM)],['Society Balance','Rs.'+(totCollected(TODAY_YM)-totSpent(TODAY_YM))],['Pending Dues','Rs.'+totPending(TODAY_YM)],['Flats Paid',paidCnt(TODAY_YM)+'/7']];
+  var sumRows=[['Opening Balance','Rs.'+(cfg.openingBalance||0)],['Total Collected','Rs.'+totCollected(TODAY_YM)],['Total Spent','Rs.'+totSpent(TODAY_YM)],['Society Balance','Rs.'+societyBalance(TODAY_YM)],['Pending Dues','Rs.'+totPending(TODAY_YM)],['Flats Paid',paidCnt(TODAY_YM)+'/7']];
   sumRows.forEach(function(sr){var r=ws2.addRow(sr);applyRow(r,C.CREAM_DK,true);r.height=18;r.getCell(2).alignment={horizontal:'right'};});
 
   // ── DOWNLOAD ──
