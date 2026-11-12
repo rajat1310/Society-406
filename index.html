@@ -940,7 +940,7 @@ function computeAutoPenalty(fid,ym,overrideC){
   var pays=(c.payments||[]).filter(function(p){return p&&p.date;}).slice()
     .sort(function(a,b){return new Date(a.date+'T00:00:00')-new Date(b.date+'T00:00:00');});
 
-  var carry=ym>NAV_START?Math.max(0,cumPaid(fid,addM(ym,-1))-cumDue(fid,addM(ym,-1))):0;var cum=carry,paidByDeadline=carry,fullyPaidDate=null;
+  var carry=ym>NAV_START?Math.max(0,cumPaid(fid,addM(ym,-1))-cumBaseDue(fid,addM(ym,-1))):0;var cum=carry,paidByDeadline=carry,fullyPaidDate=null;
   pays.forEach(function(p){
     cum+=p.amt||0;
     var pd=new Date(p.date+'T00:00:00');
@@ -1355,7 +1355,8 @@ async function doRst(){var ans=document.getElementById('sec-ans').value.trim().t
   if(!np||np.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}
   adminPin=await hashPin(np);role='admin';audit('Admin PIN reset via recovery code');saveSt();toast('\u2705 PIN reset!');
   setTimeout(function(){isAdmin=true;currentUser='admin';launch();},700);}
-async function doLogin(){var flat=document.getElementById('lg-flat').value;
+function doLogin(){return doLoginInner().catch(function(e){console.error(e);toast('\u274c Login error: '+(e&&e.message||e));});}
+async function doLoginInner(){var flat=document.getElementById('lg-flat').value;
   if(!flat){toast('\u26a0 Please select your flat');return;}
   if(flat==='admin'||flat==='treasurer'||flat==='president'){
     if(flat==='admin'&&document.getElementById('rst-panel').classList.contains('show')){doRst();return;}
@@ -2236,5 +2237,6 @@ function toast(msg){var t=document.createElement('div');t.className='toast';t.te
 </div>
 
 <!-- ── EXCEL DOWNLOAD (no modal needed - direct download) ── -->
+<div style="position:fixed;bottom:4px;right:8px;font-size:10px;opacity:.45;pointer-events:none">v4.1</div>
 </body>
 </html>
