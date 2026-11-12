@@ -1376,7 +1376,16 @@ setInterval(function(){if(isAdmin&&Date.now()-lastAct>900000){doLogout();toast('
 async function setSecurity(){var rc=document.getElementById('sc-rec').value.trim().toLowerCase(),tp=document.getElementById('sc-tre').value,pp=document.getElementById('sc-pre').value;cfg.rolePins=cfg.rolePins||{};
   if(rc){cfg.recoveryHash=await hashPin('R:'+rc);}if(tp){if(tp.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}cfg.rolePins.treasurer=await hashPin(tp);}if(pp){if(pp.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}cfg.rolePins.president=await hashPin(pp);}
   ['sc-rec','sc-tre','sc-pre'].forEach(function(i){document.getElementById(i).value='';});audit('Security settings updated');saveSt();toast('\u2705 Saved');}
-async 
+function launch(){document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';setupApp();applyRole();}
+function doLogout(){
+  currentUser=null;isAdmin=false;role='';document.body.classList.remove('ro');
+  document.getElementById('login-screen').style.display='flex';document.getElementById('app').style.display='none';
+  ['lg-pin','sec-ans','rst-pin'].forEach(function(i){var e=document.getElementById(i);if(e)e.value='';});
+  document.getElementById('lg-flat').value='';
+  var ap=document.getElementById('adm-panel'),rp=document.getElementById('rst-panel');
+  ap.classList.remove('show');rp.classList.remove('show');ap.style.display='';
+}
+
 // ── SETUP ──
 function setupApp(){
   viewMonth=TODAY_YM;ensureMonth(viewMonth);
