@@ -903,7 +903,7 @@ var DEFAULT_CFG={
 };
 
 var cfg=Object.assign({},DEFAULT_CFG);
-var adminPin='1234',role='';
+var adminPin='1234',role='',writeKey=null,metaExtra=null;
 var currentUser=null,isAdmin=false;
 var TODAY=new Date();
 var TODAY_YM=fmtYM(TODAY);
@@ -1263,6 +1263,7 @@ function startCloudListener(){_startRTDBListener();}
 
 function saveToCloud(){
   if(!rtdb||cloudSaving)return;
+  if(!writeKey)return; // only Admin/Treasurer (who proved their PIN) write to the cloud
   cloudSaving=true; setSyncBadge('saving');
   var payload={
     cfg:JSON.parse(JSON.stringify(cfg)),
@@ -1270,14 +1271,15 @@ function saveToCloud(){
     adminPin:adminPin,
     updatedAt:Date.now()
   };
-  rtdb.ref(_rtdbPath).set(payload)
+  var upd={};upd[_rtdbPath]=payload;upd['society406/writeProof/'+writeKey]=true;var me=metaExtra;if(me)Object.keys(me).forEach(function(k){upd['society406meta/'+k]=me[k];});
+  rtdb.ref().update(upd)
     .then(function(){
-      setSyncBadge('on');cloudSaving=false;showSaveInd();
+      if(me&&me.a)writeKey=me.a;metaExtra=null;setSyncBadge('on');cloudSaving=false;showSaveInd();
     })
     .catch(function(e){
       console.error('RTDB save failed:',e);setSyncBadge('error');
       cloudSaving=false;saveLocal();
-      toast('⚠ Cloud save failed — saved locally.');
+      toast(e&&e.code==='PERMISSION_DENIED'?'⛔ Cloud save blocked — write key mismatch. Open Settings > Security Key.':'⚠ Cloud save failed — saved locally.');
     });
 }
 function saveLocal(){try{localStorage.setItem(SK.cfg,JSON.stringify(cfg));localStorage.setItem(SK.data,JSON.stringify(allData));localStorage.setItem(SK.pin,adminPin);}catch(e){console.warn(e);}}
@@ -1362,7 +1364,7 @@ async function doRst(){var ans=document.getElementById('sec-ans').value.trim().t
   if(!okAns){failPin();toast('\u274c Wrong answer / recovery code');return;}
   if(!cfg.recoveryHash)setTimeout(function(){toast('\u26a0 Now set a Recovery Code in Settings > Security & Roles');},2500);
   if(!np||np.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}
-  adminPin=await hashPin(np);role='admin';audit('Admin PIN reset via recovery code');saveSt();toast('\u2705 PIN reset!');
+  adminPin=await hashPin(np);role='admin';writeKey=await deriveKey('admin',np);audit('Admin PIN reset via recovery code');saveLocal();toast('\u2705 PIN reset! Log in, then update the Security Key in Firebase (Settings > Security Key).');
   setTimeout(function(){isAdmin=true;currentUser='admin';launch();},700);}
 function doLogin(){return doLoginInner().catch(function(e){console.error(e);toast('\u274c Login error: '+(e&&e.message||e));});}
 async function doLoginInner(){var flat=document.getElementById('lg-flat').value;
@@ -1375,7 +1377,7 @@ async function doLoginInner(){var flat=document.getElementById('lg-flat').value;
     if(!await verifyPin(pin,st)){failPin();toast('\u274c Incorrect PIN');return;}
     localStorage.removeItem('s406_lock');
     if(st.indexOf('h:')!==0){var nh=await hashPin(pin);if(flat==='admin')adminPin=nh;else cfg.rolePins[flat]=nh;}
-    isAdmin=true;currentUser='admin';role=flat;if(st.indexOf('h:')!==0)saveSt();
+    isAdmin=true;currentUser='admin';role=flat;writeKey=(flat==='admin'||flat==='treasurer')?await deriveKey(flat,pin):null;if(st.indexOf('h:')!==0)saveSt();
   }else{isAdmin=false;currentUser=flat;role='';}
   launch();}
 function addRoleOptions(){var sel=document.getElementById('lg-flat');if(!sel||sel.querySelector('option[value="treasurer"]'))return;[['treasurer','\ud83d\udcb0 Treasurer'],['president','\ud83d\udc41 President (read-only)']].forEach(function(r){var o=document.createElement('option');o.value=r[0];o.textContent=r[1];sel.appendChild(o);});}
@@ -1385,11 +1387,11 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){var m=docum
 var lastAct=Date.now();['click','keydown','touchstart'].forEach(function(e){document.addEventListener(e,function(){lastAct=Date.now();});});
 setInterval(function(){if(isAdmin&&Date.now()-lastAct>900000){doLogout();toast('\u23f1 Logged out due to inactivity');}},30000);
 async function setSecurity(){var rc=document.getElementById('sc-rec').value.trim().toLowerCase(),tp=document.getElementById('sc-tre').value,pp=document.getElementById('sc-pre').value;cfg.rolePins=cfg.rolePins||{};
-  if(rc){cfg.recoveryHash=await hashPin('R:'+rc);}if(tp){if(tp.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}cfg.rolePins.treasurer=await hashPin(tp);}if(pp){if(pp.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}cfg.rolePins.president=await hashPin(pp);}
+  if(rc){cfg.recoveryHash=await hashPin('R:'+rc);}if(tp){if(tp.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}cfg.rolePins.treasurer=await hashPin(tp);metaExtra=metaExtra||{};metaExtra.t=await deriveKey('treasurer',tp);}if(pp){if(pp.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}cfg.rolePins.president=await hashPin(pp);}
   ['sc-rec','sc-tre','sc-pre'].forEach(function(i){document.getElementById(i).value='';});audit('Security settings updated');saveSt();toast('\u2705 Saved');}
-function launch(){document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';setupApp();applyRole();}
+function launch(){document.getElementById('login-screen').style.display='none';document.getElementById('app').style.display='block';setupApp();applyRole();try{startReqListener();}catch(e){}}
 function doLogout(){
-  currentUser=null;isAdmin=false;role='';document.body.classList.remove('ro');
+  currentUser=null;isAdmin=false;role='';writeKey=null;metaExtra=null;document.body.classList.remove('ro');
   document.getElementById('login-screen').style.display='flex';document.getElementById('app').style.display='none';
   ['lg-pin','sec-ans','rst-pin'].forEach(function(i){var e=document.getElementById(i);if(e)e.value='';});
   document.getElementById('lg-flat').value='';
@@ -1688,7 +1690,7 @@ function doRollover(manual){
 }
 async function changePin(){var cur=document.getElementById('cur-pin').value,np=document.getElementById('new-pin').value,cp=document.getElementById('conf-pin').value;
   if(!await verifyPin(cur,adminPin)){toast('\u274c Current PIN incorrect');return;}if(!np||np.length<4){toast('\u26a0 PIN \u2265 4 digits');return;}if(np!==cp){toast('\u26a0 PINs do not match');return;}
-  adminPin=await hashPin(np);['cur-pin','new-pin','conf-pin'].forEach(function(i){document.getElementById(i).value='';});audit('Admin PIN changed');saveSt();toast('\ud83d\udd11 PIN updated!');
+  adminPin=await hashPin(np);metaExtra={a:await deriveKey('admin',np)};['cur-pin','new-pin','conf-pin'].forEach(function(i){document.getElementById(i).value='';});audit('Admin PIN changed');saveSt();toast('\ud83d\udd11 PIN updated!');
 }
 function resetAllFlats(){
   if(!confirm('RESET ALL FLATS TO ZERO?\n\nDeletes ALL contribution and payment data.'))return;
@@ -1859,12 +1861,24 @@ function renderTools(){var el=document.getElementById('tools-body');if(!el)retur
 function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function renderExtra(){var el=document.getElementById('ov-extra');if(!el)return;var h='',card='<div style="background:var(--cream-dk);border-radius:var(--rsm);padding:12px 16px;margin-bottom:14px">';
 (cfg.notices||[]).slice(0,5).forEach(function(n){h+=card+'\ud83d\udce2 <b>Notice</b> <span style="font-size:11px;color:var(--ink-mu)">'+new Date(n.t).toLocaleDateString('en-IN')+'</span><div>'+esc(n.text)+'</div></div>';});
-if(!isAdmin&&currentUser){h+=card+'<b>\ud83d\udcb8 Paid already? Tell admin</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input class="fi" id="rq-amt" type="number" placeholder="Amount" style="width:100px"><input class="fi" id="rq-date" type="date" style="width:150px" value="'+TODAY.toISOString().split('T')[0]+'"><select class="fi" id="rq-mode" style="width:130px"><option>UPI</option><option>Cash</option><option>Cheque</option><option>Bank Transfer</option></select><input class="fi" id="rq-ref" placeholder="UTR / reference" style="width:150px"><button class="btn btn-t btn-sm" onclick="submitReq()">Submit</button></div>';(cfg.requests||[]).filter(function(r){return r.fid===currentUser;}).slice(0,3).forEach(function(r){h+='<div style="font-size:12px;margin-top:6px">\u20b9'+r.amt+' on '+r.date+' \u2014 <b>'+r.status+'</b></div>';});h+='</div>';}
-if(isAdmin){var pend=(cfg.requests||[]).filter(function(r){return r.status==='pending';});if(pend.length){h+=card+'<b>\ud83d\udd14 Payment requests ('+pend.length+')</b>';pend.forEach(function(r){var f=FLATS.find(function(x){return x.id===r.fid;});h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 0;flex-wrap:wrap"><span>'+(f?f.name+' '+f.floor:r.fid)+' \u2014 \u20b9'+r.amt+' on '+r.date+' ('+esc(r.mode)+' '+esc(r.ref)+')</span><span><button class="btn btn-t btn-xs" onclick="decideReq('+r.id+',true)">Approve</button> <button class="btn btn-d btn-xs" onclick="decideReq('+r.id+',false)">Reject</button></span></div>';});h+='</div>';}}
+if(!isAdmin&&currentUser){h+=card+'<b>\ud83d\udcb8 Paid already? Tell admin</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input class="fi" id="rq-amt" type="number" placeholder="Amount" style="width:100px"><input class="fi" id="rq-date" type="date" style="width:150px" value="'+TODAY.toISOString().split('T')[0]+'"><select class="fi" id="rq-mode" style="width:130px"><option>UPI</option><option>Cash</option><option>Cheque</option><option>Bank Transfer</option></select><input class="fi" id="rq-ref" placeholder="UTR / reference" style="width:150px"><button class="btn btn-t btn-sm" onclick="submitReq()">Submit</button></div>';getReqs().filter(function(r){return r.fid===currentUser;}).slice(0,3).forEach(function(r){h+='<div style="font-size:12px;margin-top:6px">\u20b9'+r.amt+' on '+r.date+' \u2014 <b>'+r.status+'</b></div>';});h+='</div>';}
+if(isAdmin){var pend=getReqs().filter(function(r){return r.status==='pending';});if(pend.length){h+=card+'<b>\ud83d\udd14 Payment requests ('+pend.length+')</b>';pend.forEach(function(r){var f=FLATS.find(function(x){return x.id===r.fid;});h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 0;flex-wrap:wrap"><span>'+(f?f.name+' '+f.floor:r.fid)+' \u2014 \u20b9'+r.amt+' on '+r.date+' ('+esc(r.mode)+' '+esc(r.ref)+')</span><span><button class="btn btn-t btn-xs" onclick="decideReq(\''+r.id+'\',true)">Approve</button> <button class="btn btn-d btn-xs" onclick="decideReq(\''+r.id+'\',false)">Reject</button></span></div>';});h+='</div>';}}
 h+=cashHtml()+budgetHtml()+creditHtml()+fundsHtml();
 el.innerHTML=h;}
-function submitReq(){var a=parseFloat(document.getElementById('rq-amt').value),d=document.getElementById('rq-date').value;if(!a||a<1||!d){toast('\u26a0 Enter amount and date');return;}cfg.requests=cfg.requests||[];cfg.requests.unshift({id:Date.now(),fid:currentUser,amt:a,date:d,mode:document.getElementById('rq-mode').value,ref:document.getElementById('rq-ref').value.trim(),status:'pending'});audit('Payment request \u20b9'+a+' from '+currentUser);saveSt();renderExtra();toast('\u2705 Sent to admin for approval');}
-function decideReq(id,ok){var r=(cfg.requests||[]).find(function(x){return x.id===id;});if(!r)return;if(ok){var ym=r.date.substring(0,7);if(ym<NAV_START||ym>TODAY_YM)ym=TODAY_YM;var c=getMD(ym).contributions[r.fid];c.paid=(c.paid||0)+r.amt;if(!c.payments)c.payments=[];c.payments.push({amt:r.amt,date:r.date,mode:r.mode,ref:r.ref});}r.status=ok?'approved':'rejected';audit('Request '+r.status+': \u20b9'+r.amt+' '+r.fid);saveSt();renderAll();toast(ok?'\u2705 Approved & recorded':'Rejected');}
+var cloudReqs=null;
+function startReqListener(){if(typeof rtdb==='undefined'||!rtdb||cloudReqs!==null)return;cloudReqs={};try{rtdb.ref('society406/requests').on('value',function(sn){cloudReqs=sn.val()||{};try{renderExtra();}catch(e){}});}catch(e){}}
+function getReqs(){if(rtdb&&cloudReqs){var a=Object.keys(cloudReqs).map(function(k){var r=cloudReqs[k];r.id=k;return r;});a.sort(function(x,y){return (y.t||0)-(x.t||0);});return a;}return cfg.requests||[];}
+function submitReq(){var a=parseFloat(document.getElementById('rq-amt').value),d=document.getElementById('rq-date').value;if(!a||a<1||!d){toast('\u26a0 Enter amount and date');return;}
+  var r={fid:currentUser,amt:a,date:d,mode:document.getElementById('rq-mode').value,ref:document.getElementById('rq-ref').value.trim().slice(0,60),status:'pending',t:Date.now()};
+  if(rtdb){rtdb.ref('society406/requests').push(r).then(function(){toast('\u2705 Sent to admin for approval');}).catch(function(){toast('\u274c Could not send request');});}
+  else{r.id=Date.now();cfg.requests=cfg.requests||[];cfg.requests.unshift(r);saveSt();renderExtra();toast('\u2705 Sent to admin for approval');}}
+function decideReq(id,ok){var r=getReqs().find(function(x){return String(x.id)===String(id);});if(!r)return;
+  if(ok){var ym=r.date.substring(0,7);if(ym<NAV_START||ym>TODAY_YM)ym=TODAY_YM;var c=getMD(ym).contributions[r.fid];c.paid=(c.paid||0)+r.amt;if(!c.payments)c.payments=[];c.payments.push({amt:r.amt,date:r.date,mode:r.mode,ref:r.ref});}
+  audit('Request '+(ok?'approved':'rejected')+': \u20b9'+r.amt+' '+r.fid);
+  if(rtdb&&cloudReqs&&writeKey&&isNaN(id)){var u={};u['society406/requests/'+id+'/status']=ok?'approved':'rejected';u['society406/writeProof/'+writeKey]=true;rtdb.ref().update(u).catch(function(){toast('\u26a0 Could not update request status');});}else{r.status=ok?'approved':'rejected';}
+  saveSt();renderAll();toast(ok?'\u2705 Approved & recorded':'Rejected');}
+async function deriveKey(r,pin){var k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);var b=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode('s406-'+r),iterations:100000,hash:'SHA-256'},k,256);return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
+function copyWK(){var v=document.getElementById('wk-box').value;try{navigator.clipboard.writeText(v);toast('\u2705 Key copied');}catch(e){document.getElementById('wk-box').select();}}
 function addNotice(){var t=document.getElementById('nt-text').value.trim();if(!t)return;cfg.notices=cfg.notices||[];cfg.notices.unshift({t:new Date().toISOString(),text:t});audit('Notice posted');saveSt();renderAll();renderTools();}
 function delNotice(i){cfg.notices.splice(i,1);saveSt();renderAll();renderTools();}
 function addRecurring(){var d=document.getElementById('rc-desc').value.trim(),a=parseFloat(document.getElementById('rc-amt').value);if(!d||!a)return;cfg.recurring=cfg.recurring||[];cfg.recurring.push({desc:d,amount:a,cat:document.getElementById('rc-cat').value.trim()||'Other'});saveSt();renderTools();}
@@ -1890,7 +1904,7 @@ function createFund(){var n=document.getElementById('fd-name').value.trim();if(!
 function fundPay(id){var f=fnd(id),a=parseFloat(document.getElementById('fpa-'+id).value);if(!f||!a||a<1){toast('\u26a0 Enter amount');return;}f.contribs.push({fid:document.getElementById('fpf-'+id).value,amt:a,date:document.getElementById('fpd-'+id).value});audit('Fund '+f.name+' contribution \u20b9'+a);saveSt();renderAll();renderTools();}
 function fundSpend(id){var f=fnd(id),a=parseFloat(document.getElementById('fsa-'+id).value),d=document.getElementById('fsd-'+id).value.trim();if(!f||!a||!d){toast('\u26a0 Enter description and amount');return;}f.spends.push({desc:d,amt:a,date:TODAY.toISOString().split('T')[0]});audit('Fund '+f.name+' expense \u20b9'+a+' '+d);saveSt();renderAll();renderTools();}
 function closeFund(id){var f=fnd(id);if(f&&confirm('Close fund "'+f.name+'"?')){f.closed=true;audit('Fund closed: '+f.name);saveSt();renderAll();renderTools();}}
-function securityHtml(){return '<div style="margin-top:14px"><b>\ud83d\udd12 Security &amp; Roles</b><div style="font-size:11px;color:var(--ink-mu)">Leave blank to keep unchanged. PINs are stored hashed. Treasurer can edit but cannot open Settings; President is read-only.</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0"><input class="fi" id="sc-rec" placeholder="Recovery code" style="width:130px"><input class="fi" id="sc-tre" type="password" placeholder="Treasurer PIN" style="width:120px"><input class="fi" id="sc-pre" type="password" placeholder="President PIN" style="width:120px"><button class="btn btn-t btn-sm" onclick="setSecurity()">Save</button></div></div>';}
+function securityHtml(){return '<div style="margin-top:14px"><b>\ud83d\udd12 Security &amp; Roles</b><div style="font-size:11px;color:var(--ink-mu)">Leave blank to keep unchanged. PINs are stored hashed. Treasurer can edit but cannot open Settings; President is read-only.</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0"><input class="fi" id="sc-rec" placeholder="Recovery code" style="width:130px"><input class="fi" id="sc-tre" type="password" placeholder="Treasurer PIN" style="width:120px"><input class="fi" id="sc-pre" type="password" placeholder="President PIN" style="width:120px"><button class="btn btn-t btn-sm" onclick="setSecurity()">Save</button></div>'+(writeKey?'<div style="margin-top:10px"><b>\ud83d\udd11 Database Security Key</b><div style="font-size:11px;color:var(--ink-mu)">Copy this into Firebase (Realtime Database &rarr; Data &rarr; society406meta &rarr; a). Needed once, and again whenever the admin PIN changes after a reset.</div><div style="display:flex;gap:6px;margin-top:4px"><input class="fi" id="wk-box" readonly value="'+writeKey+'" onclick="this.select()"><button class="btn btn-s btn-xs" onclick="copyWK()">Copy</button></div></div>':'')+'</div>';}
 
 // ── CASH/BANK, BILLS, BUDGETS ──
 var pendingBill=null;
@@ -2258,6 +2272,6 @@ function toast(msg){var t=document.createElement('div');t.className='toast';t.te
 </div>
 
 <!-- ── EXCEL DOWNLOAD (no modal needed - direct download) ── -->
-<div style="position:fixed;bottom:4px;right:8px;font-size:10px;opacity:.45;pointer-events:none">v4.5</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:10px;opacity:.45;pointer-events:none">v5.0</div>
 </body>
 </html>
