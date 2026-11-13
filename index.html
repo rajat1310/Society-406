@@ -764,6 +764,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
       🔒 Manual override — freeze this penalty at the value above (won't auto-recalculate). Leave unchecked to let it stay auto-calculated from actual payment dates.
     </label>
   </div>
+  <div class="fg" id="fem-summary" style="background:var(--cream-dk);border-radius:var(--rsm);padding:10px 12px;margin-top:6px;font-size:12px"></div>
   <div class="fg" style="margin-top:6px">
     <label class="fl">💳 Payment Records (the date of each one decides if penalty applies)</label>
     <div id="fem-payments-list" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div>
@@ -873,6 +874,7 @@ function applyFlatNames(){
     var s=cfg.flatNames[f.id];if(!s)return;
     if(s.name)f.name=s.name;if(s.floor)f.floor=s.floor;if(s.block)f.block=s.block;
   });
+  try{refreshLoginDropdown();}catch(x){}
 }
 
 var CAT_ICO={'💡 Utilities':'💡','🔒 Security':'🔒','🔧 Maintenance':'🔧','🧹 Cleaning':'🧹','🏗 Repairs':'🏗','🌿 Gardening':'🌿','📦 Other':'📦'};
@@ -1703,7 +1705,7 @@ function openFlatEdit(fid){
   document.getElementById('fem-base').value=c.baseDue;document.getElementById('fem-paid').value=c.paid;
   document.getElementById('fem-pen').value=getEffectivePenalty(fid,viewMonth);document.getElementById('fem-arr').value=c.arrears;
   document.getElementById('fem-pen-manual').checked=!!c.penaltyManual;
-  renderFemPayments(c.payments);
+  renderFemPayments(c.payments);renderFemSummary(fid);
   document.getElementById('flat-edit-modal').classList.remove('hidden');
 }
 function renderFemPayments(payments){
@@ -1852,8 +1854,8 @@ function renderExtra(){var el=document.getElementById('ov-extra');if(!el)return;
 (cfg.notices||[]).slice(0,5).forEach(function(n){h+=card+'\ud83d\udce2 <b>Notice</b> <span style="font-size:11px;color:var(--ink-mu)">'+new Date(n.t).toLocaleDateString('en-IN')+'</span><div>'+esc(n.text)+'</div></div>';});
 if(!isAdmin&&currentUser){h+=card+'<b>\ud83d\udcb8 Paid already? Tell admin</b><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><input class="fi" id="rq-amt" type="number" placeholder="Amount" style="width:100px"><input class="fi" id="rq-date" type="date" style="width:150px" value="'+TODAY.toISOString().split('T')[0]+'"><select class="fi" id="rq-mode" style="width:130px"><option>UPI</option><option>Cash</option><option>Cheque</option><option>Bank Transfer</option></select><input class="fi" id="rq-ref" placeholder="UTR / reference" style="width:150px"><button class="btn btn-t btn-sm" onclick="submitReq()">Submit</button></div>';(cfg.requests||[]).filter(function(r){return r.fid===currentUser;}).slice(0,3).forEach(function(r){h+='<div style="font-size:12px;margin-top:6px">\u20b9'+r.amt+' on '+r.date+' \u2014 <b>'+r.status+'</b></div>';});h+='</div>';}
 if(isAdmin){var pend=(cfg.requests||[]).filter(function(r){return r.status==='pending';});if(pend.length){h+=card+'<b>\ud83d\udd14 Payment requests ('+pend.length+')</b>';pend.forEach(function(r){var f=FLATS.find(function(x){return x.id===r.fid;});h+='<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;padding:5px 0;flex-wrap:wrap"><span>'+(f?f.name+' '+f.floor:r.fid)+' \u2014 \u20b9'+r.amt+' on '+r.date+' ('+esc(r.mode)+' '+esc(r.ref)+')</span><span><button class="btn btn-t btn-xs" onclick="decideReq('+r.id+',true)">Approve</button> <button class="btn btn-d btn-xs" onclick="decideReq('+r.id+',false)">Reject</button></span></div>';});h+='</div>';}}
-h+=cashHtml()+budgetHtml()+creditHtml()+fundsHtml();var cur=addM(TODAY_YM,-5),mx=1,rows=[];if(cur<NAV_START)cur=NAV_START;while(cur<=TODAY_YM){var c=0;if(allData[cur]&&allData[cur].contributions)FLATS.forEach(function(f){var x=allData[cur].contributions[f.id];if(x)c+=x.paid||0;});var sp=expsForMonth(cur).reduce(function(a,e){return a+e.amount;},0);mx=Math.max(mx,c,sp);rows.push([cur,c,sp]);cur=nextYM(cur);}
-h+=card+'<b>\ud83d\udcca Collected vs Spent</b>';rows.forEach(function(r){h+='<div style="font-size:11px;margin-top:6px">'+monthLabel(r[0])+'<div style="background:var(--teal,#1a7f6b);height:8px;width:'+(r[1]/mx*100)+'%;border-radius:4px"></div><div style="background:var(--danger,#b02020);height:8px;width:'+(r[2]/mx*100)+'%;border-radius:4px;margin-top:2px"></div>\u20b9'+r[1]+' in / \u20b9'+r[2]+' out</div>';});h+='</div>';el.innerHTML=h;}
+h+=cashHtml()+budgetHtml()+creditHtml()+fundsHtml();
+el.innerHTML=h;}
 function submitReq(){var a=parseFloat(document.getElementById('rq-amt').value),d=document.getElementById('rq-date').value;if(!a||a<1||!d){toast('\u26a0 Enter amount and date');return;}cfg.requests=cfg.requests||[];cfg.requests.unshift({id:Date.now(),fid:currentUser,amt:a,date:d,mode:document.getElementById('rq-mode').value,ref:document.getElementById('rq-ref').value.trim(),status:'pending'});audit('Payment request \u20b9'+a+' from '+currentUser);saveSt();renderExtra();toast('\u2705 Sent to admin for approval');}
 function decideReq(id,ok){var r=(cfg.requests||[]).find(function(x){return x.id===id;});if(!r)return;if(ok){var ym=r.date.substring(0,7);if(ym<NAV_START||ym>TODAY_YM)ym=TODAY_YM;var c=getMD(ym).contributions[r.fid];c.paid=(c.paid||0)+r.amt;if(!c.payments)c.payments=[];c.payments.push({amt:r.amt,date:r.date,mode:r.mode,ref:r.ref});}r.status=ok?'approved':'rejected';audit('Request '+r.status+': \u20b9'+r.amt+' '+r.fid);saveSt();renderAll();toast(ok?'\u2705 Approved & recorded':'Rejected');}
 function addNotice(){var t=document.getElementById('nt-text').value.trim();if(!t)return;cfg.notices=cfg.notices||[];cfg.notices.unshift({t:new Date().toISOString(),text:t});audit('Notice posted');saveSt();renderAll();renderTools();}
@@ -1894,6 +1896,17 @@ function budgetInputs(){return catList().map(function(c){return '<div style="fon
 function setBudget(c,v){cfg.budgets=cfg.budgets||{};cfg.budgets[c]=parseFloat(v)||0;audit('Budget '+c+' \u20b9'+cfg.budgets[c]);saveSt();renderAll();}
 function budgetHtml(){var b=cfg.budgets||{},ks=Object.keys(b).filter(function(k){return b[k]>0;});if(!ks.length)return '';var sp={};expsForMonth(TODAY_YM).forEach(function(e){sp[e.cat]=(sp[e.cat]||0)+e.amount;});var h=CARD+'<b>\ud83d\udcca Budget \u2014 '+monthLabel(TODAY_YM)+'</b>';ks.forEach(function(k){var u=sp[k]||0,p=Math.min(100,u/b[k]*100);h+='<div style="font-size:12px;margin-top:5px">'+esc(k)+' \u20b9'+u+' / \u20b9'+b[k]+(u>b[k]?' <b style="color:var(--danger,#b02020)">\u26a0 over budget</b>':'')+'<div style="background:#ddd;height:6px;border-radius:3px"><div style="background:'+(u>b[k]?'#b02020':'#1a7f6b')+';height:6px;width:'+p+'%;border-radius:3px"></div></div></div>';});return h+'</div>';}
 if('serviceWorker' in navigator&&location.protocol.indexOf('http')===0)navigator.serviceWorker.register('sw.js').catch(function(){});
+
+// ── FLAT OUTSTANDING SUMMARY / WAIVER ──
+function renderFemSummary(fid){var el=document.getElementById('fem-summary');if(!el||!fid)return;var tb=cumBaseDue(fid,TODAY_YM),paid=cumPaid(fid,TODAY_YM),pen=cumPenalty(fid,TODAY_YM),bp=Math.max(0,tb-paid),tp=Math.max(0,tb+pen-paid),pp=tp-bp;
+var h='<b>\ud83d\udccb Overall outstanding (all months till '+monthLabel(TODAY_YM)+')</b><table style="width:100%;margin:6px 0"><tr><td>Total base contribution due</td><td align=right>\u20b9'+tb+'</td></tr><tr><td>Total paid so far</td><td align=right>\u20b9'+paid+'</td></tr><tr><td><b>Base amount still to pay</b></td><td align=right><b>\u20b9'+bp+'</b></td></tr><tr><td>Penalty charged (all months)</td><td align=right>\u20b9'+pen+'</td></tr><tr><td>Penalty still unpaid</td><td align=right>\u20b9'+pp+'</td></tr><tr><td><b>Total payable incl. penalty</b></td><td align=right><b>\u20b9'+tp+'</b></td></tr></table>';
+var rows='',cur=NAV_START;while(cur<=TODAY_YM){var c=allData[cur]&&allData[cur].contributions&&allData[cur].contributions[fid];if(c){var e=getEffectivePenalty(fid,cur);if(e>0)rows+='<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0"><span>'+monthLabel(cur)+' \u2014 penalty \u20b9'+e+'</span><button type="button" class="btn btn-amber btn-xs" onclick="waivePenalty(\''+fid+'\',\''+cur+'\')">Waive</button></div>';}cur=nextYM(cur);}
+if(rows)h+='<div style="margin-top:4px"><b>Months with penalty</b>'+rows+'<button type="button" class="btn btn-d btn-sm" style="width:100%;margin-top:6px" onclick="waivePenalty(\''+fid+'\',\'all\')">\ud83e\uddf9 Waive ALL penalty \u2014 collect base amount only</button></div>';else h+='<div style="color:var(--ink-mu)">No penalty charged on this flat.</div>';
+el.innerHTML=h;}
+function waivePenalty(fid,which){var cur=NAV_START,list=[];while(cur<=TODAY_YM){var c=allData[cur]&&allData[cur].contributions&&allData[cur].contributions[fid];if(c&&(which==='all'||which===cur)&&getEffectivePenalty(fid,cur)>0)list.push(cur);cur=nextYM(cur);}
+if(!list.length){toast('\u2139 No penalty to waive');return;}var rs=prompt('Reason for waiving penalty ('+(which==='all'?list.length+' month(s)':monthLabel(which))+'):','Agreed to pay pending base amount');if(rs===null)return;var tot=0;
+list.forEach(function(ym){var c=allData[ym].contributions[fid];tot+=getEffectivePenalty(fid,ym);c.penalty=0;c.penaltyManual=true;if(ym===viewMonth&&document.getElementById('fem-pen')){document.getElementById('fem-pen').value=0;document.getElementById('fem-pen-manual').checked=true;}});
+audit('Penalty waived \u20b9'+tot+' for '+fid+' ('+list.map(monthLabel).join(', ')+') \u2014 '+rs);saveSt();renderAll();renderFemSummary(fid);toast('\u2705 Penalty \u20b9'+tot+' waived');}
 function saveSettings(){
   function gi(id){return document.getElementById(id);}function gv(id){return parseInt(gi(id)&&gi(id).value)||0;}
   var ba=gv('cfg-base'),cm=gv('cfg-start-month'),cy=gv('cfg-start-year'),sd=gv('cfg-start'),wd=gv('cfg-warn'),pd=gv('cfg-pday'),ud=gv('cfg-uday'),pa=gv('cfg-pamt'),cd=gv('cfg-cdays');
@@ -2238,6 +2251,6 @@ function toast(msg){var t=document.createElement('div');t.className='toast';t.te
 </div>
 
 <!-- ── EXCEL DOWNLOAD (no modal needed - direct download) ── -->
-<div style="position:fixed;bottom:4px;right:8px;font-size:10px;opacity:.45;pointer-events:none">v4.2</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:10px;opacity:.45;pointer-events:none">v4.4</div>
 </body>
 </html>
