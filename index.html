@@ -356,7 +356,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
   background:#fff;font-size:13px;color:var(--ink)}
 
 </style>
-<style>.ro .page button,.ro .page input,.ro .page select,.ro .page textarea,.ro .page label.btn{pointer-events:none;opacity:.55}</style>
+<style>.ro .page button,.ro .page input,.ro .page select,.ro .page textarea,.ro .page label.btn{pointer-events:none;opacity:.55}.mbd{overflow-y:auto;overscroll-behavior:contain}
+.modal{max-height:calc(100vh - 40px);max-height:calc(100dvh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.modal .modal-actions{position:sticky;bottom:-30px;background:#fff;padding-bottom:6px;z-index:2}
+.modal-x{position:sticky;top:0;float:right;z-index:3;border:0;background:#eee;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;margin-left:8px}
+@media(max-width:520px){.mbd{padding:10px}.modal{padding:18px;max-height:calc(100vh - 20px);max-height:calc(100dvh - 20px)}.modal .modal-actions{bottom:-18px}}
+</style>
 </head>
 <body>
 
@@ -743,8 +748,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
 </div><!-- /app -->
 
 <!-- ── FLAT EDIT MODAL ── -->
-<div class="mbd hidden" id="flat-edit-modal">
+<div class="mbd hidden" id="flat-edit-modal" onclick="if(event.target===this)closeFlatEdit()">
 <div class="modal" style="max-width:480px">
+  <button type="button" class="modal-x" onclick="closeFlatEdit()" title="Close">✕</button>
   <div class="modal-title" id="fem-title">✏️ Edit Flat</div>
   <div class="modal-sub" id="fem-sub">Adjust amounts for this flat.</div>
   <div style="background:var(--danger-lt);border:1px solid rgba(176,32,32,.2);border-radius:var(--rsm);padding:10px 13px;margin-bottom:18px;font-size:12px;color:var(--danger);display:flex;gap:7px;align-items:center">
@@ -1375,6 +1381,7 @@ async function doLoginInner(){var flat=document.getElementById('lg-flat').value;
 function addRoleOptions(){var sel=document.getElementById('lg-flat');if(!sel||sel.querySelector('option[value="treasurer"]'))return;[['treasurer','\ud83d\udcb0 Treasurer'],['president','\ud83d\udc41 President (read-only)']].forEach(function(r){var o=document.createElement('option');o.value=r[0];o.textContent=r[1];sel.appendChild(o);});}
 window.addEventListener('load',addRoleOptions);
 function applyRole(){document.body.classList.toggle('ro',role==='president');var st=document.getElementById('tab-settings');if(st)st.style.display=role==='treasurer'?'none':'';var r=document.getElementById('u-role');if(isAdmin&&role&&role!=='admin'&&r)r.textContent=role.toUpperCase();}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){var m=document.getElementById('flat-edit-modal');if(m&&!m.classList.contains('hidden'))closeFlatEdit();}});
 var lastAct=Date.now();['click','keydown','touchstart'].forEach(function(e){document.addEventListener(e,function(){lastAct=Date.now();});});
 setInterval(function(){if(isAdmin&&Date.now()-lastAct>900000){doLogout();toast('\u23f1 Logged out due to inactivity');}},30000);
 async function setSecurity(){var rc=document.getElementById('sc-rec').value.trim().toLowerCase(),tp=document.getElementById('sc-tre').value,pp=document.getElementById('sc-pre').value;cfg.rolePins=cfg.rolePins||{};
@@ -2251,6 +2258,6 @@ function toast(msg){var t=document.createElement('div');t.className='toast';t.te
 </div>
 
 <!-- ── EXCEL DOWNLOAD (no modal needed - direct download) ── -->
-<div style="position:fixed;bottom:4px;right:8px;font-size:10px;opacity:.45;pointer-events:none">v4.4</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:10px;opacity:.45;pointer-events:none">v4.5</div>
 </body>
 </html>
