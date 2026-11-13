@@ -788,6 +788,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--ink);m
 </div>
 </div>
 
+<!-- ── WHATSAPP CONFIRMATION MODAL ── -->
+<div class="mbd hidden" id="wa-modal">
+<div class="modal" style="max-width:460px">
+  <button type="button" class="modal-x" onclick="closeWA()" title="Close">✕</button>
+  <div class="modal-title">📲 Send WhatsApp Confirmation</div>
+  <div class="modal-sub" id="wa-note">Review the message, then send.</div>
+  <textarea class="fi" id="wa-text" rows="14" style="width:100%;font-size:13px"></textarea>
+  <div class="modal-actions" style="justify-content:flex-end">
+    <button class="btn btn-s btn-sm" onclick="closeWA()">Skip</button>
+    <button class="btn btn-s btn-sm" onclick="copyWAText()">Copy</button>
+    <button class="btn btn-t btn-sm" onclick="sendWA()">📲 Open WhatsApp</button>
+  </div>
+</div>
+</div>
+
 <!-- ── QUICK PAY (MARK PAID) MODAL ── -->
 <div class="mbd hidden" id="quickpay-modal">
 <div class="modal" style="max-width:420px">
@@ -1652,7 +1667,7 @@ function recPayment(){
   if(!fid){toast('\u26a0 Select a flat');return;}if(!amt||amt<1){toast('\u26a0 Enter valid amount');return;}
   var c=getMD(viewMonth).contributions[fid];
   c.paid+=amt;if(!c.payments)c.payments=[];var _d=date||TODAY.toISOString().split('T')[0],_m=document.getElementById('pay-mode').value,_r=document.getElementById('pay-ref').value.trim();c.payments.push({amt:amt,date:_d,mode:_m,ref:_r});audit('Payment \u20b9'+amt+' '+fid+' '+monthLabel(viewMonth)+' on '+_d+' ('+_m+(_r?' '+_r:'')+')');document.getElementById('pay-ref').value='';
-  document.getElementById('pay-amt').value='';saveSt();renderAll();toast('\u2705 Payment \u20b9'+amt+' recorded!');
+  document.getElementById('pay-amt').value='';saveSt();renderAll();toast('\u2705 Payment \u20b9'+amt+' recorded!');offerWA(fid,viewMonth,c.payments.length-1);
 }
 var quickPayFid=null;
 function quickPay(fid){
@@ -1672,7 +1687,7 @@ function confirmQuickPay(){
   if(!date){toast('\u26a0 Select a payment date');return;}
   var fid=quickPayFid,c=getMD(viewMonth).contributions[fid];
   c.paid=(c.paid||0)+amt;if(!c.payments)c.payments=[];var _m=document.getElementById('qp-mode').value,_r=document.getElementById('qp-ref').value.trim();c.payments.push({amt:amt,date:date,mode:_m,ref:_r});audit('Payment \u20b9'+amt+' '+fid+' '+monthLabel(viewMonth)+' on '+date+' ('+_m+(_r?' '+_r:'')+')');document.getElementById('qp-ref').value='';
-  closeQuickPay();saveSt();renderAll();toast('\u2705 Payment recorded!');
+  closeQuickPay();saveSt();renderAll();toast('\u2705 Payment recorded!');offerWA(fid,viewMonth,c.payments.length-1);
 }
 function applyPenalty(){
   var fid=document.getElementById('pen-flat').value,amt=parseFloat(document.getElementById('pen-amt').value);
@@ -1878,7 +1893,7 @@ function decideReq(id,ok){var r=getReqs().find(function(x){return String(x.id)==
   if(ok){var ym=r.date.substring(0,7);if(ym<NAV_START||ym>TODAY_YM)ym=TODAY_YM;var c=getMD(ym).contributions[r.fid];c.paid=(c.paid||0)+r.amt;if(!c.payments)c.payments=[];c.payments.push({amt:r.amt,date:r.date,mode:r.mode,ref:r.ref});}
   audit('Request '+(ok?'approved':'rejected')+': \u20b9'+r.amt+' '+r.fid);
   if(rtdb&&cloudReqs&&writeKey&&isNaN(id)){if(cloudReqs[id])cloudReqs[id].status=ok?'approved':'rejected';var u={};u['society406/requests/'+id+'/status']=ok?'approved':'rejected';u['society406/writeProof/'+writeKey]=true;rtdb.ref().update(u).catch(function(){toast('\u26a0 Could not update request status');});}else{r.status=ok?'approved':'rejected';}
-  saveSt();renderAll();toast(ok?'\u2705 Approved & recorded':'Rejected');}
+  saveSt();renderAll();toast(ok?'\u2705 Approved & recorded':'Rejected');if(ok&&typeof c!=='undefined')offerWA(r.fid,ym,c.payments.length-1);}
 async function deriveKey(r,pin){var k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);var b=await crypto.subtle.deriveBits({name:'PBKDF2',salt:new TextEncoder().encode('s406-'+r),iterations:100000,hash:'SHA-256'},k,256);return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,'0');}).join('');}
 function copyWK(){var v=document.getElementById('wk-box').value;try{navigator.clipboard.writeText(v);toast('\u2705 Key copied');}catch(e){document.getElementById('wk-box').select();}}
 function addNotice(){var t=document.getElementById('nt-text').value.trim();if(!t)return;cfg.notices=cfg.notices||[];cfg.notices.unshift({t:new Date().toISOString(),text:t});audit('Notice posted');saveSt();renderAll();renderTools();}
@@ -1932,6 +1947,20 @@ list.forEach(function(ym){var c=allData[ym].contributions[fid];tot+=getEffective
 audit('Penalty waived \u20b9'+tot+' for '+fid+' ('+list.map(monthLabel).join(', ')+') \u2014 '+rs);saveSt();renderAll();renderFemSummary(fid);toast('\u2705 Penalty \u20b9'+tot+' waived');}
 function deletePayment(ym,fid,i){var c=allData[ym]&&allData[ym].contributions[fid],p=c&&c.payments&&c.payments[i];if(!p)return;if(!confirm('Delete this payment of \u20b9'+p.amt+' dated '+p.date+' ('+monthLabel(ym)+')? This reduces the flat\'s paid amount.'))return;
 c.payments.splice(i,1);c.paid=Math.max(0,(c.paid||0)-p.amt);audit('Payment deleted: \u20b9'+p.amt+' '+p.date+' '+fid+' '+monthLabel(ym));saveSt();renderAll();renderTools();toast('\u2705 Payment deleted');}
+
+// ── WHATSAPP PAYMENT CONFIRMATION ──
+var waNum='';
+function fmtDate(d){var p=String(d).split('-');if(p.length!==3)return d;var m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return p[2]+' '+m[parseInt(p[1],10)-1]+' '+p[0];}
+function waMessage(fid,ym,pi){var f=FLATS.find(function(x){return x.id===fid;}),det=(cfg.flatDetails||{})[fid]||{},c=allData[ym].contributions[fid],p=c.payments[pi];if(!f||!p)return '';
+  var nm=(det.ownerName&&String(det.ownerName).trim())||f.name,fb=flatBal(fid,ym),tp=cumBal(fid,TODAY_YM),cr=Math.max(0,cumPaid(fid,TODAY_YM)-cumBaseDue(fid,TODAY_YM)),no='R'+ym.replace('-','')+'-'+(FLATS.indexOf(f)+1)+'-'+(pi+1);
+  var L=['\u2705 *Payment Received \u2014 '+(cfg.socName||'Society 406')+'*','','Dear '+nm+',','','We have received your payment.','','\ud83c\udfe0 '+f.name+' \u00b7 '+f.floor,'\ud83d\udcb0 Amount: \u20b9'+p.amt,'\ud83d\udcc5 Paid on: '+fmtDate(p.date),'\ud83d\uddd3 Marked for: '+monthLabel(ym),'\ud83d\udcb3 Mode: '+(p.mode||'-')+(p.ref?' (Ref: '+p.ref+')':''),'\ud83e\uddfe Receipt No: '+no,'','Status for '+monthLabel(ym)+': '+(fb===0?'*PAID IN FULL* \u2714':'*PART PAYMENT* \u2014 balance \u20b9'+fb),'Total pending balance: \u20b9'+tp];
+  if(cr>0)L.push('Advance credit: \u20b9'+cr);
+  L.push('','Thank you for your timely contribution.','\u2014 '+(cfg.socName||'Society 406')+' Management');return L.join('\n');}
+function offerWA(fid,ym,pi){try{var msg=waMessage(fid,ym,pi);if(!msg)return;var det=(cfg.flatDetails||{})[fid]||{},n=String(det.contact||'').replace(/\D/g,'');if(n.length===11&&n[0]==='0')n=n.slice(1);if(n.length===10)n='91'+n;waNum=n.length>=11?n:'';
+  document.getElementById('wa-text').value=msg;document.getElementById('wa-note').textContent=waNum?'Will open WhatsApp chat with +'+waNum+'. You can edit the message first.':'\u26a0 No contact number saved for this flat \u2014 WhatsApp will let you choose the contact.';document.getElementById('wa-modal').classList.remove('hidden');}catch(e){console.error(e);}}
+function sendWA(){var t=document.getElementById('wa-text').value;window.open('https://wa.me/'+waNum+'?text='+encodeURIComponent(t),'_blank');closeWA();}
+function copyWAText(){var t=document.getElementById('wa-text');try{navigator.clipboard.writeText(t.value);toast('\u2705 Message copied');}catch(e){t.select();}}
+function closeWA(){document.getElementById('wa-modal').classList.add('hidden');}
 function saveSettings(){
   function gi(id){return document.getElementById(id);}function gv(id){return parseInt(gi(id)&&gi(id).value)||0;}
   var ba=gv('cfg-base'),cm=gv('cfg-start-month'),cy=gv('cfg-start-year'),sd=gv('cfg-start'),wd=gv('cfg-warn'),pd=gv('cfg-pday'),ud=gv('cfg-uday'),pa=gv('cfg-pamt'),cd=gv('cfg-cdays');
@@ -2276,6 +2305,6 @@ function toast(msg){var t=document.createElement('div');t.className='toast';t.te
 </div>
 
 <!-- ── EXCEL DOWNLOAD (no modal needed - direct download) ── -->
-<div style="position:fixed;bottom:4px;right:8px;font-size:10px;opacity:.45;pointer-events:none">v5.1</div>
+<div style="position:fixed;bottom:4px;right:8px;font-size:10px;opacity:.45;pointer-events:none">v5.2</div>
 </body>
 </html>
